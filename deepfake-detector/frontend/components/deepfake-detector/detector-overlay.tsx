@@ -75,7 +75,6 @@ export function DetectorOverlay() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const snippetIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -83,7 +82,7 @@ export function DetectorOverlay() {
   const monitoringStartTimeRef = useRef<number | null>(null);
   const sessionIdRef = useRef<string | null>(null);
 
-  const BACKEND_URL = "https://detectible-judy-overderisive.ngrok-free.dev";
+  const BACKEND_URL = "http://localhost:8000";
 
   const updateAudioLevels = useCallback(() => {
     if (analyserRef.current && isActive) {
@@ -107,6 +106,7 @@ export function DetectorOverlay() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
         },
         body: JSON.stringify({
           source_type: sourceType,
@@ -137,15 +137,25 @@ export function DetectorOverlay() {
 
       const response = await fetch(`${BACKEND_URL}/api/v1/analyze`, {
         method: "POST",
+        headers: {
+          "ngrok-skip-browser-warning": "true",
+        },
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error(`Analysis failed: ${response.statusText}`);
+        const errBody = await response.text();
+        console.error("Analyze error response:", response.status, errBody);
+        throw new Error(`Analysis failed: ${response.status} ${errBody}`);
       }
 
       const data = await response.json();
       console.log("Backend analysis result:", data);
+      // Normalize backend labels (likely_real/likely_fake) to frontend verdicts (real/fake)
+      if (data.overall?.verdict) {
+        const v = data.overall.verdict;
+        data.overall.verdict = v === "likely_real" ? "real" : v === "likely_fake" ? "fake" : v;
+      }
       return data;
     } catch (error) {
       console.error("Error sending audio to backend:", error);
@@ -211,42 +221,39 @@ export function DetectorOverlay() {
         sessionIdRef.current = sessionId;
       }
 
-      // Set up MediaRecorder for 2-second chunks
-      mediaRecorderRef.current = new MediaRecorder(audioStream, {
-        mimeType: "audio/webm",
-      });
-      audioChunksRef.current = [];
-
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorderRef.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, {
-          type: "audio/webm",
+      // Helper: create a fresh MediaRecorder that produces a complete webm file
+      const startNewRecorder = () => {
+        if (!streamRef.current?.active) return;
+        const recorder = new MediaRecorder(streamRef.current, {
+          mimeType: "audio/webm",
         });
-        if (audioBlob.size > 0 && sessionIdRef.current) {
-          const result = await sendAudioToBackend(audioBlob);
-          if (result) {
-            // Update analysis data with real backend result
-            setAnalysisData({
-              verdict: result.overall.verdict,
-              confidence: result.overall.peak_score * 100,
-              snippetsAnalyzed: snippetsCount + 1,
-              duration: (snippetsCount + 1) * 2,
-              pointers: generatePointers(result.overall.verdict),
+        const chunks: Blob[] = [];
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) chunks.push(e.data);
+        };
+        recorder.onstop = async () => {
+          const blob = new Blob(chunks, { type: "audio/webm" });
+          if (blob.size > 0 && sessionIdRef.current) {
+            const result = await sendAudioToBackend(blob);
+            setSnippetsCount((prev) => {
+              const newCount = prev + 1;
+              if (result) {
+                setAnalysisData({
+                  verdict: result.overall.verdict,
+                  confidence: result.overall.peak_score * 100,
+                  snippetsAnalyzed: newCount,
+                  duration: newCount * 2,
+                  pointers: generatePointers(result.overall.verdict),
+                });
+                setState("result");
+                setIsProcessing(false);
+              }
+              return newCount;
             });
-            setState("result");
-            setIsProcessing(false);
           }
-        }
-        // Start new recording
-        audioChunksRef.current = [];
-        if (mediaRecorderRef.current && streamRef.current) {
-          mediaRecorderRef.current.start();
-        }
+        };
+        recorder.start();
+        mediaRecorderRef.current = recorder;
       };
 
       audioContextRef.current = new AudioContext();
@@ -273,22 +280,14 @@ export function DetectorOverlay() {
         setMonitoringTime((prev) => prev + 1);
       }, 1000);
 
-      // Send 2-second audio snippets to backend for analysis
+      // Start first recording, then cycle every 2 seconds
+      startNewRecorder();
       snippetIntervalRef.current = setInterval(() => {
-        setSnippetsCount((prev) => {
-          const newCount = prev + 1;
-          // Stop current recording, which will trigger onstop and send to backend
-          if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-            mediaRecorderRef.current.stop();
-          }
-          return newCount;
-        });
+        if (mediaRecorderRef.current?.state === "recording") {
+          mediaRecorderRef.current.stop(); // triggers onstop → sends data
+        }
+        startNewRecorder(); // new recorder with fresh webm header
       }, 2000);
-
-      // Start initial recording
-      if (mediaRecorderRef.current) {
-        mediaRecorderRef.current.start();
-      }
 
       updateAudioLevels();
     } catch (error) {
@@ -404,7 +403,7 @@ export function DetectorOverlay() {
     if (processingTimeoutRef.current) {
       clearTimeout(processingTimeoutRef.current);
     }
-    if (audioContextRef.current) {
+    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
       audioContextRef.current.close();
     }
 
