@@ -1,0 +1,63 @@
+#df-badge-root {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 2147483647;
+  font-family: system-ui, sans-serif;
+  user-select: none;
+}
+
+#df-badge-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #6b7280;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  transition: background 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+}
+
+#df-badge-circle.likely_real   { background: #22c55e; }
+#df-badge-circle.uncertain     { background: #eab308; }
+#df-badge-circle.likely_fake   { background: #ef4444; }
+#df-badge-circle.idle          { background: #6b7280; }
+
+#df-badge-panel {
+  position: absolute;
+  bottom: 56px;
+  right: 0;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  padding: 12px 14px;
+  min-width: 160px;
+  display: none;
+}
+
+#df-badge-panel.visible { display: block; }
+
+#df-badge-panel h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.df-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 4px;
+  color: #111827;
+}
+
+.df-row span:first-child { color: #6b7280; }
