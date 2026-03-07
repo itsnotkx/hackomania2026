@@ -16,7 +16,11 @@ SUPPORTED_TYPES = {
     "audio/x-wav",
     "audio/mpeg",
     "audio/mp3",
+    "audio/mp4",
+    "audio/m4a",
+    "audio/x-m4a",
     "audio/ogg",
+    "audio/flac",
     "video/mp4",
     "video/webm",
 }

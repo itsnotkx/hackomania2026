@@ -78,27 +78,34 @@ async def main():
         print(f"  Round-trip: {latency:.0f}ms")
 
         # Test 3: Real audio files (if present)
+        # Accepts ai_sample / human_sample in .wav, .mp3, or .m4a
         test_audio_dir = pathlib.Path(__file__).parent.parent / "test_audio"
-        ai_sample = test_audio_dir / "ai_sample.wav"
-        human_sample = test_audio_dir / "human_sample.wav"
+        EXTENSIONS = [".wav", ".mp3", ".m4a"]
 
-        if ai_sample.exists() and human_sample.exists():
+        def find_sample(stem: str) -> pathlib.Path | None:
+            for ext in EXTENSIONS:
+                p = test_audio_dir / (stem + ext)
+                if p.exists():
+                    return p
+            return None
+
+        ai_sample = find_sample("ai_sample")
+        human_sample = find_sample("human_sample")
+
+        if ai_sample and human_sample:
+            import librosa
             print("\n[Test 3] Real audio accuracy test")
-            import scipy.io.wavfile as wavfile
             for label, path in [("AI sample", ai_sample), ("Human sample", human_sample)]:
-                sr, data = wavfile.read(str(path))
-                if data.ndim > 1:
-                    data = data[:, 0]
-                if data.dtype != np.int16:
-                    data = (data / data.max() * 32767).astype(np.int16)
+                data, _ = librosa.load(str(path), sr=16000, mono=True)
                 chunk = data[:32000]  # first 2s
                 if len(chunk) < 32000:
                     chunk = np.pad(chunk, (0, 32000 - len(chunk)))
-                result, latency = await send_frame(ws, chunk.tobytes())
-                print(f"  {label}: {result} ({latency:.0f}ms)")
+                pcm = (chunk * 32767).astype(np.int16).tobytes()
+                result, latency = await send_frame(ws, pcm)
+                print(f"  {label} ({path.suffix}): {result} ({latency:.0f}ms)")
         else:
             print(f"\n[Test 3] SKIP: no test audio at {test_audio_dir}")
-            print("  Place ai_sample.wav and human_sample.wav there to run accuracy tests")
+            print("  Place ai_sample and human_sample (.wav, .mp3, or .m4a) there to run accuracy tests")
 
     print("\nAll tests complete.")
 

@@ -8,5 +8,6 @@ transformers
 huggingface-hub
 numpy
 scipy
+librosa
 pydantic-settings
 httpx

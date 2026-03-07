@@ -14,23 +14,13 @@ logger = get_logger(__name__)
 
 
 def _load_audio_bytes(file_bytes: bytes, content_type: str) -> np.ndarray:
-    """Load audio from file bytes, return float32 array at 16kHz."""
-    import scipy.io.wavfile as wavfile
+    """Load audio from file bytes, return float32 array at 16kHz.
+
+    Supports WAV, MP3, M4A, OGG, FLAC, and any format ffmpeg can decode.
+    """
+    import librosa
     try:
-        sr, data = wavfile.read(io.BytesIO(file_bytes))
-        if data.ndim > 1:
-            data = data[:, 0]  # mono
-        if data.dtype != np.float32:
-            data = data.astype(np.float32) / (2**15 if data.dtype == np.int16 else 2**31)
-        # Simple resampling if needed
-        if sr != settings.sample_rate:
-            ratio = settings.sample_rate / sr
-            new_len = int(len(data) * ratio)
-            data = np.interp(
-                np.linspace(0, len(data) - 1, new_len),
-                np.arange(len(data)),
-                data,
-            ).astype(np.float32)
+        data, _ = librosa.load(io.BytesIO(file_bytes), sr=settings.sample_rate, mono=True)
         return data
     except Exception as e:
         logger.error("Failed to load audio: %s", e)
