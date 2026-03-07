@@ -1,4 +1,5 @@
-FROM python:3.11-slim
+# Python 3.9 required for fairseq==0.12.2 (NII AntiDeepfake model dependency)
+FROM python:3.9-slim
 
 WORKDIR /app
 
@@ -7,6 +8,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libsndfile1 \
     ffmpeg \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
