@@ -15,3 +15,5 @@ librosa
 soundfile
 pydantic-settings
 httpx
+openai
+google-cloud-speech
