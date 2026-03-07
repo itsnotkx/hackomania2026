@@ -1,27 +1,28 @@
-"use client"
+"use client";
 
-import { motion } from "framer-motion"
-import { cn } from "@/lib/utils"
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 interface AudioWaveformProps {
-  levels: number[]
-  isActive?: boolean
+  levels: number[];
+  isActive?: boolean;
 }
 
-export function AudioWaveform({ levels, isActive = false }: AudioWaveformProps) {
+export function AudioWaveform({
+  levels,
+  isActive = false,
+}: AudioWaveformProps) {
+  // Show only every 3rd bar (1/3 of the bars)
+  const filteredLevels = levels.filter((_, i) => i % 3 === 0);
+
   return (
-    <div
-      className={cn(
-        "flex h-20 items-center justify-center gap-[3px] rounded-xl px-4 transition-colors",
-        isActive ? "bg-success/5 border border-success/20" : "bg-secondary/50 border border-border"
-      )}
-    >
-      {levels.map((level, index) => (
+    <div className={cn("flex h-14 items-center justify-center gap-1")}>
+      {filteredLevels.map((level, index) => (
         <motion.div
           key={index}
           className={cn(
-            "w-1.5 rounded-full transition-colors",
-            isActive ? "bg-success" : "bg-muted-foreground/30"
+            "w-1 rounded-full transition-colors",
+            isActive ? "bg-success" : "bg-muted-foreground/30",
           )}
           animate={{
             height: isActive ? `${Math.max(6, level * 56)}px` : "6px",
@@ -33,5 +34,5 @@ export function AudioWaveform({ levels, isActive = false }: AudioWaveformProps) 
         />
       ))}
     </div>
-  )
+  );
 }

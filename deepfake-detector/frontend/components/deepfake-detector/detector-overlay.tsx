@@ -65,6 +65,10 @@ export function DetectorOverlay() {
   const [selectedHistoryItem, setSelectedHistoryItem] =
     useState<CallHistoryItem | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [sourceType, setSourceType] = useState<"call" | "video" | "file">(
+    "call",
+  );
+  const [showSourceSelector, setShowSourceSelector] = useState(false);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -74,6 +78,8 @@ export function DetectorOverlay() {
   const animationFrameRef = useRef<number | null>(null);
   const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const monitoringStartTimeRef = useRef<number | null>(null);
+
+  const BACKEND_URL = "https://detectible-judy-overderisive.ngrok-free.dev";
 
   const updateAudioLevels = useCallback(() => {
     if (analyserRef.current && isActive) {
@@ -91,10 +97,52 @@ export function DetectorOverlay() {
     }
   }, [isActive]);
 
-  const startMonitoring = async () => {
+  const createSession = async (): Promise<string | null> => {
     try {
+      const response = await fetch(`${BACKEND_URL}/api/v1/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          source_type: sourceType,
+          client_platform: "web",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create session: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(
+        "Session with id [" + data.session_id + "] created successfully.",
+      );
+      return data.session_id;
+    } catch (error) {
+      console.error("Error creating session:", error);
+      return null;
+    }
+  };
+
+  const startMonitoringWithSource = async () => {
+    setShowSourceSelector(true);
+  };
+
+  const confirmAndStartMonitoring = async () => {
+    try {
+      setShowSourceSelector(false);
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
+
+      // Create backend session with the selected source type
+      const sessionId = await createSession();
+      if (!sessionId) {
+        console.warn(
+          "Failed to create backend session, continuing with local analysis",
+        );
+      }
 
       audioContextRef.current = new AudioContext();
       analyserRef.current = audioContextRef.current.createAnalyser();
@@ -270,11 +318,19 @@ export function DetectorOverlay() {
     setAnalysisData(null);
   };
 
+  const cancelSourceSelector = () => {
+    setShowSourceSelector(false);
+  };
+
+  const handleSourceTypeChange = (type: "call" | "video" | "file") => {
+    setSourceType(type);
+  };
+
   const toggleMonitoring = () => {
     if (isActive) {
       stopMonitoring();
     } else {
-      startMonitoring();
+      startMonitoringWithSource();
     }
   };
 
@@ -661,7 +717,7 @@ export function DetectorOverlay() {
                     exit={{ opacity: 0, x: 20 }}
                   >
                     {/* Active/Inactive Toggle */}
-                    <div className="mb-4">
+                    <div className="mb-2">
                       <button
                         onClick={toggleMonitoring}
                         className={cn(
@@ -720,12 +776,9 @@ export function DetectorOverlay() {
                     </div>
 
                     {/* Waveform Visualization */}
-                    <div className="mb-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs text-muted-foreground">
-                          Audio Input
-                        </span>
-                        {isActive && (
+                    {isActive && (
+                      <div className="mb-4 space-y-2">
+                        <div className="flex items-center justify-center gap-3.5">
                           <div className="flex items-center gap-1.5">
                             <span className="relative flex h-2 w-2">
                               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
@@ -735,10 +788,16 @@ export function DetectorOverlay() {
                               {formatTime(monitoringTime)}
                             </span>
                           </div>
-                        )}
+                          <AudioWaveform
+                            levels={audioLevels}
+                            isActive={isActive}
+                          />
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          Audio Input
+                        </span>
                       </div>
-                      <AudioWaveform levels={audioLevels} isActive={isActive} />
-                    </div>
+                    )}
 
                     {/* Live Analysis Result - only show during active monitoring */}
                     <AnimatePresence mode="wait">
@@ -901,6 +960,97 @@ export function DetectorOverlay() {
                 )}
               </AnimatePresence>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Source Type Selector Modal */}
+      <AnimatePresence>
+        {showSourceSelector && (
+          <motion.div
+            key="source-selector"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            onClick={cancelSourceSelector}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-card border border-border rounded-2xl shadow-2xl max-w-sm w-full p-6"
+            >
+              <h2 className="text-lg font-semibold text-foreground mb-2">
+                Select Audio Source
+              </h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                This can be changed anytime later on.
+              </p>
+
+              <div className="space-y-2 mb-6">
+                {(["call", "video", "file"] as const).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => handleSourceTypeChange(type)}
+                    className={cn(
+                      "w-full p-3 rounded-xl border-2 transition-all text-left",
+                      sourceType === type
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-primary/50 bg-secondary/30",
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={cn(
+                          "w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0",
+                          sourceType === type
+                            ? "border-primary bg-primary"
+                            : "border-muted-foreground",
+                        )}
+                      >
+                        {sourceType === type && (
+                          <div className="w-2 h-2 bg-primary-foreground rounded-full" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground capitalize">
+                          {type === "call"
+                            ? "📞 Phone/Video Call"
+                            : type === "video"
+                              ? "🎬 Video Playing"
+                              : "📁 File Upload"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {type === "call"
+                            ? "Voice call or video conference with another person"
+                            : type === "video"
+                              ? "Video, music, or media player content"
+                              : "Uploaded or local audio file"}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={cancelSourceSelector}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 bg-primary hover:bg-primary/90"
+                  onClick={confirmAndStartMonitoring}
+                >
+                  Start Monitoring
+                </Button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
