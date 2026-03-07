@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AnalysisResult } from "./analysis-result";
 import { AudioWaveform } from "./audio-waveform";
+import { VideoPlayer } from "./video-player";
 
 type DetectorState = "idle" | "monitoring" | "analyzing" | "result";
 type Verdict = "real" | "fake" | "uncertain";
@@ -65,19 +66,22 @@ export function DetectorOverlay() {
   const [selectedHistoryItem, setSelectedHistoryItem] =
     useState<CallHistoryItem | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [sourceType, setSourceType] = useState<"call" | "video" | "file">(
-    "call",
-  );
+  const [sourceType, setSourceType] = useState<
+    "call" | "video" | "file" | null
+  >(null);
   const [showSourceSelector, setShowSourceSelector] = useState(false);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const snippetIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const monitoringStartTimeRef = useRef<number | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
 
   const BACKEND_URL = "https://detectible-judy-overderisive.ngrok-free.dev";
 
@@ -125,7 +129,33 @@ export function DetectorOverlay() {
     }
   };
 
+  const sendAudioToBackend = async (audioBlob: Blob) => {
+    try {
+      const formData = new FormData();
+      formData.append("file", audioBlob, "audio.webm");
+      formData.append("session_id", sessionIdRef.current || "");
+
+      const response = await fetch(`${BACKEND_URL}/api/v1/analyze`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Analysis failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log("Backend analysis result:", data);
+      return data;
+    } catch (error) {
+      console.error("Error sending audio to backend:", error);
+      return null;
+    }
+  };
+
   const startMonitoringWithSource = async () => {
+    // Always show source selector to force user selection
+    setSourceType(null);
     setShowSourceSelector(true);
   };
 
@@ -133,8 +163,43 @@ export function DetectorOverlay() {
     try {
       setShowSourceSelector(false);
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
+      // Capture screen + audio using getDisplayMedia
+      let audioStream: MediaStream;
+      try {
+        const displayStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true,
+        });
+
+        // Extract audio tracks from display stream
+        const audioTracks = displayStream.getAudioTracks();
+        if (audioTracks.length > 0) {
+          // Create a new audio-only stream from the display stream audio
+          audioStream = new MediaStream(audioTracks);
+          console.log("Screen audio captured successfully");
+        } else {
+          // Fallback to microphone if no audio from screen
+          console.warn(
+            "No audio from screen capture, falling back to microphone",
+          );
+          audioStream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+          });
+        }
+
+        // Stop video tracks since we only need audio
+        displayStream.getVideoTracks().forEach((track) => track.stop());
+      } catch (error) {
+        console.warn(
+          "Screen recording not available, falling back to microphone:",
+          error,
+        );
+        audioStream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+      }
+
+      streamRef.current = audioStream;
 
       // Create backend session with the selected source type
       const sessionId = await createSession();
@@ -142,11 +207,52 @@ export function DetectorOverlay() {
         console.warn(
           "Failed to create backend session, continuing with local analysis",
         );
+      } else {
+        sessionIdRef.current = sessionId;
       }
+
+      // Set up MediaRecorder for 2-second chunks
+      mediaRecorderRef.current = new MediaRecorder(audioStream, {
+        mimeType: "audio/webm",
+      });
+      audioChunksRef.current = [];
+
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorderRef.current.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/webm",
+        });
+        if (audioBlob.size > 0 && sessionIdRef.current) {
+          const result = await sendAudioToBackend(audioBlob);
+          if (result) {
+            // Update analysis data with real backend result
+            setAnalysisData({
+              verdict: result.overall.verdict,
+              confidence: result.overall.peak_score * 100,
+              snippetsAnalyzed: snippetsCount + 1,
+              duration: (snippetsCount + 1) * 2,
+              pointers: generatePointers(result.overall.verdict),
+            });
+            setState("result");
+            setIsProcessing(false);
+          }
+        }
+        // Start new recording
+        audioChunksRef.current = [];
+        if (mediaRecorderRef.current && streamRef.current) {
+          mediaRecorderRef.current.start();
+        }
+      };
 
       audioContextRef.current = new AudioContext();
       analyserRef.current = audioContextRef.current.createAnalyser();
-      const source = audioContextRef.current.createMediaStreamSource(stream);
+      const source =
+        audioContextRef.current.createMediaStreamSource(audioStream);
       source.connect(analyserRef.current);
       analyserRef.current.fftSize = 256;
 
@@ -171,13 +277,18 @@ export function DetectorOverlay() {
       snippetIntervalRef.current = setInterval(() => {
         setSnippetsCount((prev) => {
           const newCount = prev + 1;
-          // Simulate periodic analysis results coming back
-          if (newCount % 3 === 0) {
-            simulateAnalysisUpdate(newCount);
+          // Stop current recording, which will trigger onstop and send to backend
+          if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+            mediaRecorderRef.current.stop();
           }
           return newCount;
         });
       }, 2000);
+
+      // Start initial recording
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.start();
+      }
 
       updateAudioLevels();
     } catch (error) {
@@ -275,6 +386,9 @@ export function DetectorOverlay() {
   const stopMonitoring = () => {
     setIsActive(false);
 
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.stop();
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
     }
@@ -296,6 +410,7 @@ export function DetectorOverlay() {
 
     setAudioLevels(Array(24).fill(0.05));
     monitoringStartTimeRef.current = null;
+    sessionIdRef.current = null;
 
     // Save to call history when stopping with analysis results
     if (analysisData && snippetsCount > 0) {
@@ -319,7 +434,8 @@ export function DetectorOverlay() {
   };
 
   const cancelSourceSelector = () => {
-    setShowSourceSelector(false);
+    // Don't allow canceling - require source selection
+    // User must select a source type to proceed
   };
 
   const handleSourceTypeChange = (type: "call" | "video" | "file") => {
@@ -788,10 +904,7 @@ export function DetectorOverlay() {
                               {formatTime(monitoringTime)}
                             </span>
                           </div>
-                          <AudioWaveform
-                            levels={audioLevels}
-                            isActive={isActive}
-                          />
+                            <AudioWaveform isPlaying={isActive} />
                         </div>
                         <span className="text-xs text-muted-foreground">
                           Audio Input
@@ -1024,7 +1137,7 @@ export function DetectorOverlay() {
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {type === "call"
-                            ? "Voice call or video conference with another person"
+                            ? "Call audio from other person (screenshare)"
                             : type === "video"
                               ? "Video, music, or media player content"
                               : "Uploaded or local audio file"}
@@ -1035,21 +1148,16 @@ export function DetectorOverlay() {
                 ))}
               </div>
 
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={cancelSourceSelector}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  className="flex-1 bg-primary hover:bg-primary/90"
-                  onClick={confirmAndStartMonitoring}
-                >
-                  Start Monitoring
-                </Button>
-              </div>
+              <Button
+                className="w-full bg-primary hover:bg-primary/90"
+                onClick={confirmAndStartMonitoring}
+                disabled={!sourceType}
+              >
+                Start Monitoring
+              </Button>
+              <p className="text-xs text-muted-foreground text-center mt-3">
+                Select a source to proceed
+              </p>
             </motion.div>
           </motion.div>
         )}
