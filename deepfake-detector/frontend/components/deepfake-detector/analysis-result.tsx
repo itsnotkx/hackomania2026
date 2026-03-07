@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { motion } from "framer-motion"
+import { motion } from "framer-motion";
 import {
   ShieldCheck,
   ShieldAlert,
@@ -10,33 +10,39 @@ import {
   Info,
   RotateCcw,
   Share2,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-type Verdict = "real" | "fake" | "uncertain"
+type Verdict = "real" | "fake" | "uncertain";
 
 interface AnalysisPointer {
-  type: "warning" | "safe" | "neutral"
-  label: string
-  description: string
+  type: "warning" | "safe" | "neutral";
+  label: string;
+  description: string;
 }
 
 interface AnalysisData {
-  verdict: Verdict
-  confidence: number
-  snippetsAnalyzed: number
-  duration: number
-  pointers: AnalysisPointer[]
+  verdict: Verdict;
+  confidence: number;
+  snippetsAnalyzed: number;
+  duration: number;
+  pointers: AnalysisPointer[];
 }
 
 interface AnalysisResultProps {
-  data: AnalysisData
-  onReset: () => void
-  isMonitoring?: boolean
+  data: AnalysisData;
+  onReset: () => void;
+  isMonitoring?: boolean;
+  hideActions?: boolean;
 }
 
-export function AnalysisResult({ data, onReset, isMonitoring = false }: AnalysisResultProps) {
+export function AnalysisResult({
+  data,
+  onReset,
+  isMonitoring = false,
+  hideActions = false,
+}: AnalysisResultProps) {
   const getVerdictConfig = () => {
     switch (data.verdict) {
       case "real":
@@ -47,7 +53,7 @@ export function AnalysisResult({ data, onReset, isMonitoring = false }: Analysis
           bgColor: "bg-success/10",
           borderColor: "border-success/30",
           progressColor: "bg-success",
-        }
+        };
       case "fake":
         return {
           icon: ShieldAlert,
@@ -56,7 +62,7 @@ export function AnalysisResult({ data, onReset, isMonitoring = false }: Analysis
           bgColor: "bg-danger/10",
           borderColor: "border-danger/30",
           progressColor: "bg-danger",
-        }
+        };
       case "uncertain":
         return {
           icon: ShieldQuestion,
@@ -65,23 +71,23 @@ export function AnalysisResult({ data, onReset, isMonitoring = false }: Analysis
           bgColor: "bg-warning/10",
           borderColor: "border-warning/30",
           progressColor: "bg-warning",
-        }
+        };
     }
-  }
+  };
 
-  const config = getVerdictConfig()
-  const VerdictIcon = config.icon
+  const config = getVerdictConfig();
+  const VerdictIcon = config.icon;
 
   const getPointerIcon = (type: "warning" | "safe" | "neutral") => {
     switch (type) {
       case "warning":
-        return <AlertTriangle className="h-3.5 w-3.5 text-danger" />
+        return <AlertTriangle className="h-3.5 w-3.5 text-danger" />;
       case "safe":
-        return <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+        return <CheckCircle2 className="h-3.5 w-3.5 text-success" />;
       case "neutral":
-        return <Info className="h-3.5 w-3.5 text-muted-foreground" />
+        return <Info className="h-3.5 w-3.5 text-muted-foreground" />;
     }
-  }
+  };
 
   return (
     <motion.div
@@ -95,7 +101,7 @@ export function AnalysisResult({ data, onReset, isMonitoring = false }: Analysis
         className={cn(
           "rounded-xl border p-4 text-center",
           config.bgColor,
-          config.borderColor
+          config.borderColor,
         )}
       >
         <VerdictIcon className={cn("mx-auto h-10 w-10", config.color)} />
@@ -103,7 +109,8 @@ export function AnalysisResult({ data, onReset, isMonitoring = false }: Analysis
           {config.label}
         </h4>
         <p className="mt-1 text-sm text-muted-foreground">
-          Based on {data.snippetsAnalyzed} audio snippets ({data.duration}s total)
+          Based on {data.snippetsAnalyzed} audio snippets ({data.duration}s
+          total)
         </p>
       </div>
 
@@ -127,7 +134,9 @@ export function AnalysisResult({ data, onReset, isMonitoring = false }: Analysis
 
       {/* Analysis Pointers */}
       <div className="space-y-2">
-        <h5 className="text-sm font-medium text-foreground">Analysis Pointers</h5>
+        <h5 className="text-sm font-medium text-foreground">
+          Analysis Pointers
+        </h5>
         <div className="space-y-2">
           {data.pointers.map((pointer, index) => (
             <motion.div
@@ -154,19 +163,21 @@ export function AnalysisResult({ data, onReset, isMonitoring = false }: Analysis
       {/* Actions - only show when not actively monitoring */}
       {!isMonitoring && (
         <div className="flex gap-2">
+          {!hideActions && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onReset}
+              className="flex-1 gap-1.5"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              New Analysis
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
-            onClick={onReset}
-            className="flex-1 gap-1.5"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            New Analysis
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 gap-1.5"
+            className={hideActions ? "w-full gap-1.5" : "flex-1 gap-1.5"}
           >
             <Share2 className="h-3.5 w-3.5" />
             Share Report
@@ -174,5 +185,5 @@ export function AnalysisResult({ data, onReset, isMonitoring = false }: Analysis
         </div>
       )}
     </motion.div>
-  )
+  );
 }

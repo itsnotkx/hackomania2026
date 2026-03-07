@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useDeepfakeDetection } from "@/hooks/use-deepfake-detection";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Shield,
@@ -53,32 +52,204 @@ interface CallHistoryItem {
 
 export function DetectorOverlay() {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [state, setState] = useState<DetectorState>("idle");
+  const [isActive, setIsActive] = useState(false);
+  const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
+  const [monitoringTime, setMonitoringTime] = useState(0);
+  const [snippetsCount, setSnippetsCount] = useState(0);
+  const [audioLevels, setAudioLevels] = useState<number[]>(
+    Array(24).fill(0.05),
+  );
   const [callHistory, setCallHistory] = useState<CallHistoryItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [selectedHistoryItem, setSelectedHistoryItem] =
     useState<CallHistoryItem | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const {
-    isActive,
-    analysisData,
-    audioLevels,
-    monitoringTime,
-    snippetsCount,
-    connectionError,
-    startMonitoring,
-    stopMonitoring: stopMonitoringBackend,
-  } = useDeepfakeDetection();
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const snippetIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const monitoringStartTimeRef = useRef<number | null>(null);
 
-  // Derived UI state — no separate useState needed
-  const state: DetectorState = isActive
-    ? analysisData
-      ? "result"
-      : "monitoring"
-    : "idle";
+  const updateAudioLevels = useCallback(() => {
+    if (analyserRef.current && isActive) {
+      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+      analyserRef.current.getByteFrequencyData(dataArray);
 
-  // stopMonitoring — saves to call history then delegates to the hook
+      const levels: number[] = [];
+      const step = Math.floor(dataArray.length / 24);
+      for (let i = 0; i < 24; i++) {
+        const value = dataArray[i * step] / 255;
+        levels.push(Math.max(0.05, value));
+      }
+      setAudioLevels(levels);
+      animationFrameRef.current = requestAnimationFrame(updateAudioLevels);
+    }
+  }, [isActive]);
+
+  const startMonitoring = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+
+      audioContextRef.current = new AudioContext();
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      source.connect(analyserRef.current);
+      analyserRef.current.fftSize = 256;
+
+      setIsActive(true);
+      setState("monitoring");
+      setMonitoringTime(0);
+      setSnippetsCount(0);
+      setAnalysisData(null);
+      setIsProcessing(true);
+      monitoringStartTimeRef.current = Date.now();
+
+      // Show initial 6-second loading state
+      processingTimeoutRef.current = setTimeout(() => {
+        setIsProcessing(false);
+      }, 6000);
+
+      timerRef.current = setInterval(() => {
+        setMonitoringTime((prev) => prev + 1);
+      }, 1000);
+
+      // Send 2-second audio snippets to backend for analysis
+      snippetIntervalRef.current = setInterval(() => {
+        setSnippetsCount((prev) => {
+          const newCount = prev + 1;
+          // Simulate periodic analysis results coming back
+          if (newCount % 3 === 0) {
+            simulateAnalysisUpdate(newCount);
+          }
+          return newCount;
+        });
+      }, 2000);
+
+      updateAudioLevels();
+    } catch (error) {
+      console.error("Error accessing microphone:", error);
+      setIsActive(false);
+    }
+  };
+
+  const simulateAnalysisUpdate = (snippetCount: number) => {
+    // Simulate backend returning analysis results
+    // Replace this with actual API response handling
+
+    // Calculate time elapsed since monitoring started
+    const timeElapsed = monitoringStartTimeRef.current
+      ? (Date.now() - monitoringStartTimeRef.current) / 1000
+      : 0;
+
+    // Only show processing state during first 6 seconds
+    const processingDelay = timeElapsed < 6 ? 6000 - timeElapsed * 1000 : 0;
+
+    if (processingDelay > 0) {
+      setIsProcessing(true);
+    }
+
+    processingTimeoutRef.current = setTimeout(() => {
+      const verdicts: Verdict[] = ["real", "fake", "uncertain"];
+      const randomVerdict = verdicts[Math.floor(Math.random() * 3)];
+
+      setAnalysisData({
+        verdict: randomVerdict,
+        confidence: 60 + Math.random() * 35,
+        snippetsAnalyzed: snippetCount,
+        duration: snippetCount * 2,
+        pointers: generatePointers(randomVerdict),
+      });
+      setState("result");
+      setIsProcessing(false);
+    }, processingDelay);
+  };
+
+  const generatePointers = (verdict: Verdict): AnalysisPointer[] => {
+    if (verdict === "fake") {
+      return [
+        {
+          type: "warning",
+          label: "Pitch Anomalies",
+          description:
+            "Unnatural pitch transitions detected in speech patterns",
+        },
+        {
+          type: "warning",
+          label: "Spectral Artifacts",
+          description: "AI-generated spectral signatures found in audio",
+        },
+        {
+          type: "neutral",
+          label: "Background Analysis",
+          description: "Background noise patterns are inconclusive",
+        },
+      ];
+    } else if (verdict === "real") {
+      return [
+        {
+          type: "safe",
+          label: "Natural Prosody",
+          description: "Speech rhythm and intonation appear natural",
+        },
+        {
+          type: "safe",
+          label: "Authentic Timbre",
+          description: "Voice characteristics consistent with human speech",
+        },
+        {
+          type: "safe",
+          label: "Clean Spectrum",
+          description: "No synthetic artifacts detected in frequency analysis",
+        },
+      ];
+    }
+    return [
+      {
+        type: "neutral",
+        label: "Inconclusive Patterns",
+        description: "Audio quality insufficient for definitive analysis",
+      },
+      {
+        type: "neutral",
+        label: "Mixed Signals",
+        description:
+          "Some indicators suggest both natural and synthetic elements",
+      },
+    ];
+  };
+
   const stopMonitoring = () => {
-    // Capture current analysisData before the hook clears it
+    setIsActive(false);
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+    }
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    if (snippetIntervalRef.current) {
+      clearInterval(snippetIntervalRef.current);
+    }
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+    }
+
+    setAudioLevels(Array(24).fill(0.05));
+    monitoringStartTimeRef.current = null;
+
+    // Save to call history when stopping with analysis results
     if (analysisData && snippetsCount > 0) {
       const newHistoryItem: CallHistoryItem = {
         id: Date.now().toString(),
@@ -87,14 +258,16 @@ export function DetectorOverlay() {
           "+1 (555) " +
           Math.floor(100 + Math.random() * 900) +
           "-" +
-          Math.floor(1000 + Math.random() * 9000),
+          Math.floor(1000 + Math.random() * 9000), // Simulated caller ID
         timestamp: new Date(),
         isBlocked: false,
         isReported: false,
       };
       setCallHistory((prev) => [newHistoryItem, ...prev]);
     }
-    stopMonitoringBackend();
+
+    setState("idle");
+    setAnalysisData(null);
   };
 
   const toggleMonitoring = () => {
@@ -106,7 +279,13 @@ export function DetectorOverlay() {
   };
 
   const resetAnalysis = () => {
-    stopMonitoring();
+    if (isActive) {
+      stopMonitoring();
+    }
+    setState("idle");
+    setAnalysisData(null);
+    setMonitoringTime(0);
+    setSnippetsCount(0);
   };
 
   const handleReport = (itemId: string) => {
@@ -155,6 +334,20 @@ export function DetectorOverlay() {
   };
 
   const getLastCall = () => callHistory[0] || null;
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (snippetIntervalRef.current) clearInterval(snippetIntervalRef.current);
+      if (animationFrameRef.current)
+        cancelAnimationFrame(animationFrameRef.current);
+      if (processingTimeoutRef.current)
+        clearTimeout(processingTimeoutRef.current);
+      if (audioContextRef.current) audioContextRef.current.close();
+      if (streamRef.current)
+        streamRef.current.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -258,11 +451,6 @@ export function DetectorOverlay() {
                   )}
                 >
                   <History className="h-4 w-4" />
-                  {callHistory.length > 0 && !showHistory && (
-                    <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
-                      {callHistory.length > 9 ? "9+" : callHistory.length}
-                    </span>
-                  )}
                 </Button>
                 <Button
                   variant="ghost"
@@ -305,14 +493,6 @@ export function DetectorOverlay() {
                         <ChevronLeft className="h-4 w-4" />
                         Back
                       </button>
-                      {callHistory.length > 0 && (
-                        <button
-                          onClick={clearAllHistory}
-                          className="text-xs text-destructive hover:text-destructive/80 transition-colors"
-                        >
-                          Clear All
-                        </button>
-                      )}
                     </div>
 
                     <h4 className="font-medium text-foreground">
@@ -326,7 +506,6 @@ export function DetectorOverlay() {
                         animate={{ opacity: 1, y: 0 }}
                         className="space-y-3"
                       >
-
                         {/* Caller Info */}
                         <div className="rounded-xl border border-border bg-secondary/30 p-3">
                           <div className="flex items-center gap-3">
@@ -368,12 +547,6 @@ export function DetectorOverlay() {
 
                         {/* Status Badges */}
                         <div className="flex gap-2">
-                          {selectedHistoryItem.isReported && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-warning/20 px-2 py-0.5 text-xs text-warning">
-                              <Flag className="h-3 w-3" />
-                              Reported
-                            </span>
-                          )}
                           {selectedHistoryItem.isBlocked && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-destructive/20 px-2 py-0.5 text-xs text-destructive">
                               <Ban className="h-3 w-3" />
@@ -387,43 +560,8 @@ export function DetectorOverlay() {
                           data={selectedHistoryItem.analysis}
                           onReset={() => setSelectedHistoryItem(null)}
                           isMonitoring={false}
+                          hideActions={true}
                         />
-
-                        {/* Actions */}
-                        <div className="flex gap-2 pt-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleReport(selectedHistoryItem.id)}
-                            disabled={selectedHistoryItem.isReported}
-                            className={cn(
-                              "flex-1 gap-1.5",
-                              !selectedHistoryItem.isReported &&
-                                "text-warning border-warning/30 hover:bg-warning/10",
-                            )}
-                          >
-                            <Flag className="h-3.5 w-3.5" />
-                            {selectedHistoryItem.isReported
-                              ? "Reported"
-                              : "Report"}
-                          </Button>
-                          <Button
-                            variant={
-                              selectedHistoryItem.isBlocked
-                                ? "secondary"
-                                : "destructive"
-                            }
-                            size="sm"
-                            onClick={() => handleBlock(selectedHistoryItem.id)}
-                            disabled={selectedHistoryItem.isBlocked}
-                            className="flex-1 gap-1.5"
-                          >
-                            <Ban className="h-3.5 w-3.5" />
-                            {selectedHistoryItem.isBlocked
-                              ? "Blocked"
-                              : "Block"}
-                          </Button>
-                        </div>
 
                         <Button
                           variant="ghost"
@@ -581,13 +719,6 @@ export function DetectorOverlay() {
                       </button>
                     </div>
 
-                    {/* Connection error banner */}
-                    {connectionError && (
-                      <div className="mb-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                        {connectionError}
-                      </div>
-                    )}
-
                     {/* Waveform Visualization */}
                     <div className="mb-4">
                       <div className="flex items-center justify-between mb-2">
@@ -607,29 +738,59 @@ export function DetectorOverlay() {
                         )}
                       </div>
                       <AudioWaveform levels={audioLevels} isActive={isActive} />
-                      {isActive && (
-                        <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
-                          <span>{snippetsCount} snippets analyzed</span>
-                          <span>2s intervals</span>
-                        </div>
-                      )}
                     </div>
 
                     {/* Live Analysis Result - only show during active monitoring */}
                     <AnimatePresence mode="wait">
-                      {isActive && state === "result" && analysisData && (
+                      {isActive && isProcessing && (
                         <motion.div
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -10 }}
+                          className="space-y-4 text-center"
                         >
-                          <AnalysisResult
-                            data={analysisData}
-                            onReset={resetAnalysis}
-                            isMonitoring={true}
-                          />
+                          <div className="flex flex-col items-center gap-3 py-6">
+                            <div className="relative h-12 w-12">
+                              <motion.div
+                                className="absolute inset-0 rounded-full border-2 border-primary/20"
+                                animate={{ rotate: 360 }}
+                                transition={{
+                                  duration: 2,
+                                  repeat: Infinity,
+                                  ease: "linear",
+                                }}
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="h-2 w-2 rounded-full bg-primary" />
+                              </div>
+                            </div>
+                            <div>
+                              <p className="font-semibold text-foreground">
+                                Analyzing Audio
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Listening, your analysis will be ready soon...
+                              </p>
+                            </div>
+                          </div>
                         </motion.div>
                       )}
+                      {isActive &&
+                        state === "result" &&
+                        analysisData &&
+                        !isProcessing && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                          >
+                            <AnalysisResult
+                              data={analysisData}
+                              onReset={resetAnalysis}
+                              isMonitoring={true}
+                            />
+                          </motion.div>
+                        )}
                     </AnimatePresence>
 
                     {/* Last Call Summary */}
