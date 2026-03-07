@@ -71,6 +71,8 @@ class OverlayView(
                 OverlayState.PAUSED -> {
                     statusDot.setBackgroundResource(R.drawable.dot_grey)
                     statusLabel.text = "PAUSED"
+                    scoreLabel.visibility = View.GONE
+                    expanded = false
                 }
             }
             if (expanded && result != null) {
