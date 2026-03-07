@@ -35,6 +35,7 @@ class AudioCapture(private val onChunk: (ByteArray) -> Unit) {
         )
         recorder!!.startRecording()
 
+        captureJob?.cancel()
         captureJob = CoroutineScope(Dispatchers.IO).launch {
             val buffer = ByteArray(CHUNK_BYTES)
             var offset = 0

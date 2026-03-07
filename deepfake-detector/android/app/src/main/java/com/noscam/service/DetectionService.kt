@@ -15,6 +15,7 @@ import com.noscam.overlay.OverlayView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 class DetectionService : Service() {
@@ -89,9 +90,14 @@ class DetectionService : Service() {
         audio?.stop()
         wsClient?.close()
         overlay?.hide()
-        sessionId?.let { id ->
-            scope.launch { runCatching { apiClient?.deleteSession(id) } }
+        val capturedClient = apiClient
+        val capturedId = sessionId
+        if (capturedClient != null && capturedId != null) {
+            kotlinx.coroutines.GlobalScope.launch {
+                runCatching { capturedClient.deleteSession(capturedId) }
+            }
         }
+        scope.cancel()
         super.onDestroy()
     }
 
