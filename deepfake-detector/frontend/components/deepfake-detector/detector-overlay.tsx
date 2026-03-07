@@ -19,7 +19,7 @@ import {
   ChevronLeft,
   Trash2,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/Button"
 import { cn } from "@/lib/utils"
 import { AnalysisResult } from "./analysis-result"
 import { AudioWaveform } from "./audio-waveform"
