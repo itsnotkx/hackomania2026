@@ -31,14 +31,20 @@ export async function startAudioCapture(
   totalBytes = 0;
 
   // Start foreground service FIRST — required for Android 14 microphone access from background
-  await ReactNativeForegroundService.startService({
+  // ReactNativeForegroundService uses start()/stop(), not startService()/stopService()
+  // ServiceType cast: @supersami/rn-foreground-service .d.ts omits ServiceType but the JS
+  // implementation passes it through to startService() — required on Android 14 for
+  // FOREGROUND_SERVICE_TYPE_MICROPHONE.
+  const fgServiceConfig = {
     id: 1001,
     title: 'NoScam',
     message: 'Monitoring for AI-generated speech...',
     icon: 'ic_notification',
-    ServiceType: 'microphone',
     importance: 'low',
-  });
+    ServiceType: 'microphone',
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await ReactNativeForegroundService.start(fgServiceConfig as any);
 
   // Initialize AudioRecord AFTER the foreground service is running
   AudioRecord.init(AUDIO_OPTIONS);
@@ -76,5 +82,5 @@ export async function stopAudioCapture(): Promise<void> {
   pcmBuffer = [];
   totalBytes = 0;
 
-  await ReactNativeForegroundService.stopService();
+  await ReactNativeForegroundService.stop();
 }
