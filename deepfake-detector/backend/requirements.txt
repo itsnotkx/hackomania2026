@@ -5,9 +5,13 @@ python-multipart
 torch
 torchaudio
 transformers
-huggingface-hub
+# NII AntiDeepfake model dependencies
+fairseq==0.12.2
+safetensors==0.5.3
+huggingface-hub==0.31.1
 numpy
 scipy
 librosa
+soundfile
 pydantic-settings
 httpx
