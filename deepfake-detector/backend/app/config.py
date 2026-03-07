@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     app_name: str = "Deepfake Detector"
     version: str = "1.0.0"
+    allowed_origins: list[str] = ["*"]
     # NII Yamagishi Lab AntiDeepfake model - trained on ASVspoof 2021 DF + 74k hours of data
     model_id: str = "nii-yamagishilab/wav2vec-large-anti-deepfake"
     sample_rate: int = 16000
