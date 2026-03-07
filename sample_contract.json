@@ -1,0 +1,411 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Deepfake Detector API",
+    "version": "1.0.0",
+    "description": "HTTP REST + WebSocket API for real-time and file-based deepfake audio detection."
+  },
+  "servers": [
+    { "url": "http://<backend-host>:8000/api/v1", "description": "REST base URL" },
+    { "url": "ws://<backend-host>:8000/ws/v1", "description": "WebSocket base URL" }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "description": "Quick liveness probe for the server and model status.",
+        "responses": {
+          "200": {
+            "description": "Server is healthy",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": "ok",
+                  "model_loaded": true,
+                  "version": "1.0.0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions": {
+      "post": {
+        "summary": "Create a detection session",
+        "description": "Every analysis (call, video, file upload) operates within a session so the backend can track rolling statistics.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "source_type": "call",
+                "client_platform": "android",
+                "metadata": {
+                  "app_name": "youtube",
+                  "sample_rate": 16000,
+                  "chunk_duration_ms": 2000
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Session created",
+            "content": {
+              "application/json": {
+                "example": {
+                  "session_id": "sess_a1b2c3d4",
+                  "created_at": "2025-03-07T10:00:00Z",
+                  "config": {
+                    "recommended_chunk_ms": 2000,
+                    "sample_rate": 16000,
+                    "encoding": "pcm_s16le",
+                    "channels": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/{session_id}": {
+      "delete": {
+        "summary": "End a session",
+        "description": "End a session and clean up server-side resources.",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "sess_a1b2c3d4"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session ended with summary",
+            "content": {
+              "application/json": {
+                "example": {
+                  "session_id": "sess_a1b2c3d4",
+                  "summary": {
+                    "total_chunks": 45,
+                    "avg_score": 0.23,
+                    "peak_score": 0.71,
+                    "verdict": "likely_real",
+                    "duration_s": 90
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "SESSION_NOT_FOUND",
+                    "message": "Invalid or expired session ID",
+                    "details": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/{session_id}/history": {
+      "get": {
+        "summary": "Retrieve session chunk history",
+        "description": "Retrieve all chunk results from a session. Useful for building a timeline visualization.",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "sess_a1b2c3d4"
+          },
+          {
+            "name": "from_seq",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" },
+            "example": 10
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "default": 50, "maximum": 200 },
+            "example": 50
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chunk history",
+            "content": {
+              "application/json": {
+                "example": {
+                  "session_id": "sess_a1b2c3d4",
+                  "chunks": [
+                    {
+                      "seq": 1,
+                      "timestamp_ms": 0,
+                      "score": 0.15,
+                      "label": "likely_real",
+                      "confidence": 0.94
+                    },
+                    {
+                      "seq": 2,
+                      "timestamp_ms": 2000,
+                      "score": 0.82,
+                      "label": "likely_fake",
+                      "confidence": 0.88
+                    }
+                  ],
+                  "has_more": true,
+                  "next_seq": 52
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analyze": {
+      "post": {
+        "summary": "File upload one-shot analysis",
+        "description": "Upload a complete audio/video file for batch analysis.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Audio/video file (.wav, .mp3, .mp4, .webm, .ogg)"
+                  },
+                  "session_id": {
+                    "type": "string",
+                    "description": "Attach to existing session or auto-create"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Analysis result",
+            "content": {
+              "application/json": {
+                "example": {
+                  "session_id": "sess_x9y8z7",
+                  "file_name": "suspicious_call.wav",
+                  "duration_s": 34.5,
+                  "segments": [
+                    {
+                      "start_s": 0.0,
+                      "end_s": 2.0,
+                      "score": 0.12,
+                      "label": "likely_real"
+                    },
+                    {
+                      "start_s": 2.0,
+                      "end_s": 4.0,
+                      "score": 0.85,
+                      "label": "likely_fake"
+                    }
+                  ],
+                  "overall": {
+                    "avg_score": 0.43,
+                    "peak_score": 0.85,
+                    "verdict": "uncertain",
+                    "fake_segment_ratio": 0.35
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid audio",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "INVALID_AUDIO",
+                    "message": "Bad encoding, wrong sample rate, too short",
+                    "details": {}
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported format",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "UNSUPPORTED_FORMAT",
+                    "message": "File type not supported",
+                    "details": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/config": {
+      "get": {
+        "summary": "Get model and threshold configuration",
+        "responses": {
+          "200": {
+            "description": "Current configuration",
+            "content": {
+              "application/json": {
+                "example": {
+                  "model_name": "wav2vec2-asvspoof-finetuned",
+                  "thresholds": {
+                    "real_max": 0.3,
+                    "fake_min": 0.7
+                  },
+                  "rolling_window_size": 5,
+                  "supported_sample_rates": [8000, 16000, 44100],
+                  "max_chunk_duration_ms": 5000,
+                  "supported_formats": ["pcm_s16le", "wav", "mp3", "ogg", "webm"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Override thresholds at runtime (admin only)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "thresholds": {
+                  "real_max": 0.25,
+                  "fake_min": 0.65
+                },
+                "rolling_window_size": 8
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Configuration updated",
+            "content": {
+              "application/json": {
+                "example": {
+                  "model_name": "wav2vec2-asvspoof-finetuned",
+                  "thresholds": {
+                    "real_max": 0.25,
+                    "fake_min": 0.65
+                  },
+                  "rolling_window_size": 8,
+                  "supported_sample_rates": [8000, 16000, 44100],
+                  "max_chunk_duration_ms": 5000,
+                  "supported_formats": ["pcm_s16le", "wav", "mp3", "ogg", "webm"]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "websocket": {
+    "endpoint": "ws://<host>/ws/v1/stream/{session_id}",
+    "description": "Primary endpoint for real-time deepfake detection during calls and video playback.",
+    "auth": {
+      "query_param": "token",
+      "description": "Optional auth token if auth is enabled"
+    },
+    "client_to_server": {
+      "audio_chunk_binary": {
+        "description": "Binary frame — raw PCM audio bytes (s16le, mono, 16kHz)",
+        "format": "binary"
+      },
+      "audio_chunk_text": {
+        "description": "Text frame with base64-encoded audio",
+        "example": {
+          "type": "audio_chunk",
+          "seq": 1,
+          "timestamp_ms": 0,
+          "audio_b64": "<base64-encoded PCM bytes>",
+          "is_remote_speaker": true
+        }
+      },
+      "pause": {
+        "description": "Pause detection (e.g. user muted / call on hold)",
+        "example": { "type": "pause" }
+      },
+      "resume": {
+        "description": "Resume detection",
+        "example": { "type": "resume" }
+      },
+      "close": {
+        "description": "Gracefully close the stream",
+        "example": { "type": "close" }
+      }
+    },
+    "server_to_client": {
+      "result": {
+        "description": "Detection result for a received audio chunk",
+        "example": {
+          "type": "result",
+          "seq": 1,
+          "score": 0.87,
+          "label": "likely_fake",
+          "confidence": 0.91,
+          "rolling_avg": 0.64,
+          "latency_ms": 120
+        }
+      },
+      "error": {
+        "description": "Error response from the server",
+        "example": {
+          "type": "error",
+          "code": "INVALID_AUDIO",
+          "message": "Audio chunk too short — expected ~2s of samples at 16kHz"
+        }
+      }
+    }
+  },
+  "label_thresholds": {
+    "likely_real": { "score_lt": 0.3 },
+    "uncertain": { "score_gte": 0.3, "score_lt": 0.7 },
+    "likely_fake": { "score_gte": 0.7 }
+  },
+  "error_codes": {
+    "INVALID_AUDIO": { "http_status": 400, "description": "Bad encoding, wrong sample rate, too short" },
+    "SESSION_NOT_FOUND": { "http_status": 404, "description": "Invalid or expired session ID" },
+    "MODEL_UNAVAILABLE": { "http_status": 503, "description": "Model not loaded or server overloaded" },
+    "UNSUPPORTED_FORMAT": { "http_status": 415, "description": "File type not supported" },
+    "RATE_LIMITED": { "http_status": 429, "description": "Too many requests" }
+  },
+  "audio_requirements": {
+    "encoding": "pcm_s16le",
+    "sample_rate_hz": 16000,
+    "channels": 1,
+    "recommended_chunk_duration_ms": 2000,
+    "max_chunk_duration_ms": 5000
+  }
+}
