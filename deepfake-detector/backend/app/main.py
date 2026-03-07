@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.config import settings
-from app.routers import health
+from app.routers import analyze, config_router, health, sessions, ws
 from app.services import inference as inference_service
 from app.utils.logging import get_logger, setup_logging
 
@@ -28,3 +28,7 @@ app = FastAPI(
 )
 
 app.include_router(health.router)
+app.include_router(sessions.router)
+app.include_router(ws.router)
+app.include_router(analyze.router)
+app.include_router(config_router.router)
