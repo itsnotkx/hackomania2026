@@ -21,6 +21,7 @@ SUPPORTED_TYPES = {
     "audio/x-m4a",
     "audio/ogg",
     "audio/flac",
+    "audio/webm",
     "video/mp4",
     "video/webm",
 }
@@ -44,11 +45,22 @@ async def analyze_audio_file(
             detail={"code": "INVALID_AUDIO", "message": "Empty file"},
         )
 
-    result = await analyze_file(
-        file_bytes,
-        file.content_type or "audio/wav",
-        file.filename or "upload",
-    )
+    try:
+        result = await analyze_file(
+            file_bytes,
+            file.content_type or "audio/wav",
+            file.filename or "upload",
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "INVALID_AUDIO", "message": str(e)},
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"code": "ANALYSIS_FAILED", "message": str(e)},
+        )
 
     # Attach or create session
     if session_id and session_manager.get_session(session_id):

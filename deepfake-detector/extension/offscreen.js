@@ -1,4 +1,4 @@
-const BACKEND_URL = 'https://detectible-judy-overderisive.ngrok-free.dev';
+const BACKEND_URL = 'http://localhost:8000';
 const CHUNK_SAMPLES = 32000; // 2s at 16kHz
 const SAMPLE_RATE = 16000;
 const BUFFER_SIZE = 4096;
@@ -87,8 +87,14 @@ async function startCapture(streamId, sid) {
             latency_ms: result.latency_ms,
           }
         });
+      } else if (result.type === 'error') {
+        chrome.runtime.sendMessage({
+          action: 'stateChanged',
+          state: 'error',
+          error: result.message || result.code || 'Backend stream error',
+        });
       }
-    } catch (_) {}
+    } catch (_err) {}
   };
 
   ws.onerror = () => {

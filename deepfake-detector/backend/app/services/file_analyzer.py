@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import io
 
 import numpy as np
 
@@ -16,15 +15,59 @@ logger = get_logger(__name__)
 def _load_audio_bytes(file_bytes: bytes, content_type: str) -> np.ndarray:
     """Load audio from file bytes, return float32 array at 16kHz.
 
-    Supports WAV, MP3, M4A, OGG, FLAC, and any format ffmpeg can decode.
+    Uses ffmpeg directly for reliable decoding of all formats including webm/opus.
     """
-    import librosa
+    import subprocess
+    import tempfile
+    import soundfile as sf
+
     try:
-        data, _ = librosa.load(io.BytesIO(file_bytes), sr=settings.sample_rate, mono=True)
+        # Write input to a temp file (ffmpeg needs seekable input for some formats)
+        with tempfile.NamedTemporaryFile(suffix=_ext_for(content_type), delete=False) as tmp_in:
+            tmp_in.write(file_bytes)
+            tmp_in_path = tmp_in.name
+
+        # Convert to WAV 16kHz mono via ffmpeg
+        tmp_out_path = tmp_in_path + ".wav"
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-i", tmp_in_path, "-ar", str(settings.sample_rate),
+             "-ac", "1", "-f", "wav", tmp_out_path],
+            capture_output=True, timeout=30,
+        )
+        if result.returncode != 0:
+            raise ValueError(f"ffmpeg failed: {result.stderr.decode(errors='replace')[:200]}")
+
+        data, _ = sf.read(tmp_out_path, dtype="float32")
         return data
+    except ValueError:
+        raise
     except Exception as e:
         logger.error("Failed to load audio: %s", e)
         raise ValueError(f"Could not decode audio: {e}")
+    finally:
+        import os
+        for p in (tmp_in_path, tmp_out_path):
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
+
+
+def _ext_for(content_type: str) -> str:
+    """Map content type to file extension for ffmpeg."""
+    mapping = {
+        "audio/webm": ".webm",
+        "video/webm": ".webm",
+        "audio/mp4": ".m4a",
+        "audio/m4a": ".m4a",
+        "audio/mpeg": ".mp3",
+        "audio/mp3": ".mp3",
+        "audio/ogg": ".ogg",
+        "audio/flac": ".flac",
+        "audio/wav": ".wav",
+        "audio/x-wav": ".wav",
+    }
+    return mapping.get(content_type, ".bin")
 
 
 async def analyze_file(file_bytes: bytes, content_type: str, file_name: str) -> dict:
