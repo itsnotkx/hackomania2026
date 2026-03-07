@@ -6,14 +6,56 @@ import json
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from app.config import settings
 from app.services import inference as inference_service
 from app.services import session_manager
 from app.services.audio_processor import validate_chunk
+from app.services.session_manager import Session
 from app.utils.logging import get_logger
 from app.utils.scoring import rolling_average
 
 logger = get_logger(__name__)
 router = APIRouter()
+
+
+async def _run_secondary(ws: WebSocket, session: Session) -> None:
+    """Background task: transcribe buffered audio and analyze urgency via SEA-LION."""
+    from app.services import secondary_analyzer
+
+    try:
+        session.secondary_analysis_running = True
+        buffer = session.secondary_audio_buffer
+        session.secondary_audio_buffer = b""
+        session.secondary_buffer_start = None
+
+        logger.info(
+            "Secondary analysis triggered for session=%s — buffer=%d bytes",
+            session.session_id,
+            len(buffer),
+        )
+
+        result = await secondary_analyzer.run_secondary_analysis(buffer)
+
+        session.secondary_results.append(result)
+
+        await ws.send_json({
+            "type": "secondary_result",
+            "transcript": result["transcript"],
+            "urgency_level": result["urgency_level"],
+            "confidence_score": result["confidence_score"],
+            "reasoning": result["reasoning"],
+            "latency_ms": result["latency_ms"],
+        })
+
+    except Exception as e:
+        logger.error("Secondary analysis failed for session=%s: %s", session.session_id, e)
+        await ws.send_json({
+            "type": "error",
+            "code": "SECONDARY_ANALYSIS_FAILED",
+            "message": str(e),
+        })
+    finally:
+        session.secondary_analysis_running = False
 
 
 @router.websocket("/ws/v1/stream/{session_id}")
@@ -122,9 +164,18 @@ async def websocket_stream(ws: WebSocket, session_id: str):
                 "latency_ms": result["latency_ms"],
             })
 
+            # ── Secondary analysis layer ──
+            if result["label"] == "uncertain" and settings.secondary_enabled:
+                session.append_to_secondary_buffer(audio_bytes)
+                if session.should_trigger_secondary():
+                    asyncio.create_task(_run_secondary(ws, session))
+            else:
+                session.reset_secondary_buffer()
+
     except WebSocketDisconnect:
         pass  # Normal client disconnect
     except Exception as e:
         logger.error("WebSocket error session=%s: %s", session_id, e)
     finally:
         logger.info("WebSocket disconnected: session=%s", session_id)
+

@@ -111,3 +111,12 @@ class FileAnalysisResponse(BaseModel):
     duration_s: float
     segments: list[FileSegment]
     overall: FileAnalysisOverall
+
+
+class SecondaryAnalysisResult(BaseModel):
+    type: Literal["secondary_result"] = "secondary_result"
+    transcript: str
+    urgency_level: str       # low | medium | high | critical
+    confidence_score: float  # 0.0 – 1.0
+    reasoning: str
+    latency_ms: int
