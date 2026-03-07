@@ -11,9 +11,10 @@ import {
   requestMicPermission,
 } from './src/permissions/PermissionManager';
 
-// Replace with actual deployed Railway URL after Phase 1 deployment
-// e.g. 'wss://noscam-backend-production.up.railway.app/ws'
-const BACKEND_WS_URL = 'wss://YOUR_RAILWAY_URL/ws';
+// Local Docker via ngrok — run `ngrok http 8000` and paste the wss:// URL here
+// e.g. 'wss://abc123.ngrok-free.app/ws/v1/stream'
+// Production: 'wss://noscam-backend-production.up.railway.app/ws/v1/stream'
+const BACKEND_WS_URL = 'wss://abc123.ngrok-free.app/ws/v1/stream';
 
 type PermissionsState = 'checking' | 'missing' | 'granted';
 

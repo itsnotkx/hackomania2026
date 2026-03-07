@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from app.config import settings
 from app.models.enums import Label
 
