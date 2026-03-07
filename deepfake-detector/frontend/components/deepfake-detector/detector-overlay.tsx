@@ -372,7 +372,7 @@ export function DetectorOverlay() {
             initial={{ scale: 0.8, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.8, opacity: 0, y: 20 }}
-            className="w-80 overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+            className="flex max-h-[calc(100vh-3rem)] w-80 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
           >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-border bg-secondary/30 px-4 py-3">
@@ -421,7 +421,7 @@ export function DetectorOverlay() {
             </div>
 
             {/* Content */}
-            <div className="p-4">
+            <div className="flex-1 overflow-y-auto overscroll-contain p-4">
               <AnimatePresence mode="wait">
                 {showHistory ? (
                   <motion.div
