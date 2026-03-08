@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     allowed_origins: list[str] = [
     "http://localhost:3000",
     "http://127.0.0.1:3000"
-    "https://detectible-judy-overderisive.ngrok-free.dev"
+    "https://nonperceivably-unblinding-orville.ngrok-free.dev"
 ]
     # NII Yamagishi Lab AntiDeepfake model - trained on ASVspoof 2021 DF + 74k hours of data
     model_id: str = "nii-yamagishilab/wav2vec-large-anti-deepfake"

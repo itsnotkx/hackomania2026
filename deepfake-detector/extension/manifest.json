@@ -11,7 +11,7 @@
     "storage"
   ],
   "host_permissions": [
-    "https://detectible-judy-overderisive.ngrok-free.dev/*"
+    "https://nonperceivably-unblinding-orville.ngrok-free.dev/*"
   ],
   "background": {
     "service_worker": "service-worker.js"
@@ -24,6 +24,12 @@
       "128": "icons/icon128.png"
     }
   },
+  "web_accessible_resources": [
+    {
+      "resources": ["audio-worklet-processor.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],

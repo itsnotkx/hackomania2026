@@ -26,7 +26,7 @@ frontend/
 
 ```json
 "permissions": ["tabCapture", "offscreen", "activeTab", "scripting", "storage"],
-"host_permissions": ["https://detectible-judy-overderisive.ngrok-free.dev/*"]
+"host_permissions": ["https://nonperceivably-unblinding-orville.ngrok-free.dev/*"]
 ```
 
 ## Data Flow

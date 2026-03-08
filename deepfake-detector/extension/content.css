@@ -126,3 +126,71 @@
 }
 
 .df-row span:first-child { color: #6b7280; }
+
+/* ── Mode toggle row (NOW ◀ ▶ AVG) ──────────────────────────────────────── */
+
+#df-badge-mode-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+#df-badge-mode-row button {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 7px;
+  line-height: 1;
+  padding: 0 1px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+#df-badge-mode-row button:hover { color: white; }
+
+#df-mode-text {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  opacity: 0.9;
+  min-width: 22px;
+  text-align: center;
+}
+
+/* ── Secondary analysis section ─────────────────────────────────────────── */
+
+.df-section-divider {
+  border-top: 1px solid #e5e7eb;
+  margin: 8px 0;
+}
+
+#df-secondary-section h4 {
+  margin: 0 0 6px;
+}
+
+.df-urgency-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.df-urgency-badge.df-urgency-low      { background: #dcfce7; color: #15803d; }
+.df-urgency-badge.df-urgency-medium   { background: #fef9c3; color: #854d0e; }
+.df-urgency-badge.df-urgency-high     { background: #fed7aa; color: #9a3412; }
+.df-urgency-badge.df-urgency-critical { background: #fee2e2; color: #991b1b; }
+
+.df-reasoning-row span:last-child,
+.df-transcript-row span:last-child {
+  max-width: 140px;
+  text-align: right;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.3;
+  font-size: 11px;
+}
+
+#df-badge-panel { min-width: 220px; }

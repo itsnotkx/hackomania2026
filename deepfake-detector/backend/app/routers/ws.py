@@ -164,14 +164,11 @@ async def websocket_stream(ws: WebSocket, session_id: str):
                 "latency_ms": result["latency_ms"],
             })
 
-            # ── Secondary analysis layer ──
-            # Trigger for scores below the fake threshold (uncertain + likely_real)
-            if result["score"] < settings.threshold_fake_min and settings.secondary_enabled:
+            # ── Secondary analysis layer ── always runs alongside primary
+            if settings.secondary_enabled:
                 session.append_to_secondary_buffer(audio_bytes)
                 if session.should_trigger_secondary():
                     asyncio.create_task(_run_secondary(ws, session))
-            else:
-                session.reset_secondary_buffer()
 
     except WebSocketDisconnect:
         pass  # Normal client disconnect

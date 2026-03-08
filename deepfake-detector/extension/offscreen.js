@@ -1,14 +1,16 @@
 const BACKEND_URL = 'http://localhost:8000';
 const CHUNK_SAMPLES = 32000; // 2s at 16kHz
 const SAMPLE_RATE = 16000;
-const BUFFER_SIZE = 4096;
+
+const SILENCE_RMS_THRESHOLD = 0.01;   // below this → treat chunk as silent
+const SILENCE_CHUNKS_TO_IDLE = 1;     // consecutive silent chunks before going idle
 
 let audioCtx = null;
-let processor = null;
+let workletNode = null;
 let source = null;
 let ws = null;
 let sessionId = null;
-let sampleBuffer = new Float32Array(0);
+let _silentStreak = 0;
 
 // Listen for messages from service worker
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -43,26 +45,33 @@ async function startCapture(streamId, sid) {
   audioCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
   source = audioCtx.createMediaStreamSource(stream);
 
-  // ScriptProcessorNode to receive PCM callbacks
-  processor = audioCtx.createScriptProcessor(BUFFER_SIZE, 1, 1);
-  processor.onaudioprocess = (e) => {
-    const input = e.inputBuffer.getChannelData(0); // float32, mono, channel 0
-    // Append to rolling buffer
-    const combined = new Float32Array(sampleBuffer.length + input.length);
-    combined.set(sampleBuffer);
-    combined.set(input, sampleBuffer.length);
-    sampleBuffer = combined;
+  // Load AudioWorklet processor module
+  await audioCtx.audioWorklet.addModule(
+    chrome.runtime.getURL('audio-worklet-processor.js')
+  );
 
-    // Send complete 2-second chunks
-    while (sampleBuffer.length >= CHUNK_SAMPLES) {
-      const chunk = sampleBuffer.slice(0, CHUNK_SAMPLES);
-      sampleBuffer = sampleBuffer.slice(CHUNK_SAMPLES);
-      sendChunk(chunk);
+  workletNode = new AudioWorkletNode(audioCtx, 'chunk-processor');
+  workletNode.port.onmessage = (e) => {
+    if (e.data.type !== 'chunk') return;
+    const { samples, rms } = e.data;
+
+    if (rms < SILENCE_RMS_THRESHOLD) {
+      _silentStreak++;
+      if (_silentStreak >= SILENCE_CHUNKS_TO_IDLE) {
+        chrome.runtime.sendMessage({
+          action: 'wsBroadcast',
+          payload: { action: 'silenceDetected' },
+        });
+      }
+      return; // skip sending silent audio to the backend
     }
+
+    _silentStreak = 0;
+    sendChunk(samples);
   };
 
-  source.connect(processor);
-  processor.connect(audioCtx.destination); // must connect to destination to activate
+  source.connect(workletNode);
+  workletNode.connect(audioCtx.destination);
 
   // Open WebSocket
   const wsUrl = BACKEND_URL.replace('https://', 'wss://').replace('http://', 'ws://');
@@ -84,6 +93,18 @@ async function startCapture(streamId, sid) {
             label: result.label,
             score: result.score,
             rolling_avg: result.rolling_avg,
+            latency_ms: result.latency_ms,
+          }
+        });
+      } else if (result.type === 'secondary_result') {
+        chrome.runtime.sendMessage({
+          action: 'wsBroadcast',
+          payload: {
+            action: 'updateSecondary',
+            urgency_level: result.urgency_level,
+            confidence_score: result.confidence_score,
+            reasoning: result.reasoning,
+            transcript: result.transcript,
             latency_ms: result.latency_ms,
           }
         });
@@ -120,11 +141,11 @@ function sendChunk(float32Samples) {
 }
 
 function stopCapture() {
-  if (processor) { processor.disconnect(); processor = null; }
-  if (source)    { source.disconnect();    source = null; }
-  if (audioCtx)  { audioCtx.close();      audioCtx = null; }
-  if (ws)        { ws.close();             ws = null; }
-  sampleBuffer = new Float32Array(0);
+  _silentStreak = 0;
+  if (workletNode) { workletNode.disconnect(); workletNode = null; }
+  if (source)      { source.disconnect();      source = null; }
+  if (audioCtx)    { audioCtx.close();         audioCtx = null; }
+  if (ws)          { ws.close();               ws = null; }
   sessionId = null;
   chrome.runtime.sendMessage({
     action: 'wsBroadcast',
