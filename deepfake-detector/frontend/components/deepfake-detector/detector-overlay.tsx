@@ -440,9 +440,8 @@ export function DetectorOverlay() {
           ? currentWebsite
           : sourceType === "video"
             ? "Video Stream"
-            : "+1 (555) " +
-              Math.floor(100 + Math.random() * 900) +
-              "-" +
+            : "+65 " +
+              Math.floor(1000 + Math.random() * 9000) +
               Math.floor(1000 + Math.random() * 9000);
 
       const newHistoryItem: CallHistoryItem = {
