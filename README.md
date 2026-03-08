@@ -6,7 +6,7 @@
 
 ## The Problem
 
-Voice cloning and AI-generated audio are increasingly weaponised in phone scams, fake news, and social engineering attacks. Seniors are disproportionately targeted — a quick phone call from a "government official" or a "family member in distress" is all it takes. Existing solutions focus on detecting AI-generated **text**, but the audio layer has remained largely unaddressed.
+Voice cloning and AI-generated audio are increasingly weaponised in phone scams, fake news, and social engineering attacks. Seniors are disproportionately targeted — a quick phone call from a "government official" or a "family member in distress" is all it takes. Additionally, deepfaked videos intent on scamming individuals or spreading alarm are increasingly rampant across social media. Existing solutions focus on detecting AI-generated **text**, but the audio layer has remained largely unaddressed. 
 
 NoScam fills that gap.
 
