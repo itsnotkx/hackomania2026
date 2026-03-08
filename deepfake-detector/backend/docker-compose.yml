@@ -12,6 +12,8 @@ services:
     volumes:
       # Cache HuggingFace model downloads between restarts
       - huggingface_cache:/root/.cache/huggingface
+      # Bind-mount source code so changes reflect without rebuilding
+      - ./app:/app/app
     restart: unless-stopped
 
 volumes:
