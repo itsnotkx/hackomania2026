@@ -1,4 +1,4 @@
-# DeepShield — Live AI Audio Deepfake Detector
+# NoScam — Live AI Audio Deepfake Detector
 
 > A real-time AI-generated audio detection system built to combat scams and fake news, with a focus on protecting vulnerable communities in Southeast Asia.
 
@@ -8,7 +8,7 @@
 
 Voice cloning and AI-generated audio are increasingly weaponised in phone scams, fake news, and social engineering attacks. Seniors are disproportionately targeted — a quick phone call from a "government official" or a "family member in distress" is all it takes. Existing solutions focus on detecting AI-generated **text**, but the audio layer has remained largely unaddressed.
 
-DeepShield fills that gap.
+NoScam fills that gap.
 
 ---
 
@@ -20,7 +20,7 @@ Audio is streamed in real time to the backend, where it is analysed by the **[NI
 
 ### Sliding Window Approach
 
-Rather than analysing audio in isolated chunks and making a single binary decision, DeepShield uses a **sliding window** strategy:
+Rather than analysing audio in isolated chunks and making a single binary decision, NoScam uses a **sliding window** strategy:
 
 - Incoming audio is split into short, overlapping chunks (~2 seconds each).
 - Each chunk receives an independent fakeness score (0 = real, 1 = fake).
@@ -41,7 +41,7 @@ This dual-layer approach means that even if the audio synthesis fools the acoust
 
 ### Complementing Existing Solutions
 
-This system is designed to complement **[Ahref's](https://ahrefs.com/) AI-generated text detection** capability. Where Ahref identifies AI-written articles and content, DeepShield adds an orthogonal **audio detection layer** — together forming a more complete defence against AI-generated disinformation across both written and spoken media.
+This system is designed to complement **[Ahref's](https://ahrefs.com/) AI-generated text detection** capability. Where Ahref identifies AI-written articles and content, NoScam adds an orthogonal **audio detection layer** — together forming a more complete defence against AI-generated disinformation across both written and spoken media.
 
 ---
 
