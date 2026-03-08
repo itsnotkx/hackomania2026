@@ -117,7 +117,7 @@ export function DetectorOverlay() {
   const monitoringStartTimeRef = useRef<number | null>(null);
   const sessionIdRef = useRef<string | null>(null);
 
-  const BACKEND_URL = ""
+  const BACKEND_URL ="https://nonperceivably-unblinding-orville.ngrok-free.dev"
 
   const updateAudioLevels = useCallback(() => {
     if (analyserRef.current && isActive) {
