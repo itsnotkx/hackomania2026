@@ -101,13 +101,10 @@ export function DetectorOverlay() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [sourceType, setSourceType] = useState<"call" | "video" | null>(null);
   const [showSourceSelector, setShowSourceSelector] = useState(false);
-<<<<<<< HEAD
   const [secondaryAlert, setSecondaryAlert] = useState<SecondaryAlert | null>(null);
   const [secondaryAlertDismissed, setSecondaryAlertDismissed] = useState(false);
-=======
   const [currentWebsite, setCurrentWebsite] = useState<string>("");
   const [videoWebsiteName, setVideoWebsiteName] = useState<string>("");
->>>>>>> edcea22 (frontend display changes)
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -120,7 +117,7 @@ export function DetectorOverlay() {
   const monitoringStartTimeRef = useRef<number | null>(null);
   const sessionIdRef = useRef<string | null>(null);
 
-  const BACKEND_URL = "https://detectible-judy-overderisive.ngrok-free.dev";
+  const BACKEND_URL ="https://nonperceivably-unblinding-orville.ngrok-free.dev"
 
   const updateAudioLevels = useCallback(() => {
     if (analyserRef.current && isActive) {
