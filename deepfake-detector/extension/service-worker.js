@@ -1,4 +1,4 @@
-const BACKEND_URL = 'http://localhost:8000';
+const BACKEND_URL = 'https://detectible-judy-overderisive.ngrok-free.dev';
 const OFFSCREEN_URL = chrome.runtime.getURL('offscreen.html');
 
 let state = 'idle'; // 'idle' | 'connecting' | 'live' | 'error'

@@ -15,6 +15,7 @@ import {
   Flag,
   Ban,
   Phone,
+  Camera,
   Clock,
   ChevronLeft,
   Trash2,
@@ -47,6 +48,7 @@ interface CallHistoryItem {
   id: string;
   analysis: AnalysisData;
   callerInfo: string;
+  sourceType: "call" | "video";
   timestamp: Date;
   isBlocked: boolean;
   isReported: boolean;
@@ -58,6 +60,29 @@ interface SecondaryAlert {
   reasoning: string;
   confidence_score: number;
 }
+
+const getCurrentWebsite = (): string => {
+  if (typeof window === "undefined") return "Unknown";
+  
+  const hostname = window.location.hostname;
+  
+  const websiteMap: Record<string, string> = {
+    "zoom.us": "Zoom",
+    "meet.google.com": "Google Meet",
+    "teams.microsoft.com": "Microsoft Teams",
+    "discord.com": "Discord",
+    "twitch.tv": "Twitch",
+    "youtube.com": "YouTube",
+    "facebook.com": "Facebook",
+    // ... add more as needed
+  };
+  
+  for (const [domain, name] of Object.entries(websiteMap)) {
+    if (hostname.includes(domain)) return name;
+  }
+  
+  return hostname.replace("www.", "").split(".")[0];
+};
 
 export function DetectorOverlay() {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -74,12 +99,15 @@ export function DetectorOverlay() {
   const [selectedHistoryItem, setSelectedHistoryItem] =
     useState<CallHistoryItem | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [sourceType, setSourceType] = useState<
-    "call" | "video" | "file" | null
-  >(null);
+  const [sourceType, setSourceType] = useState<"call" | "video" | null>(null);
   const [showSourceSelector, setShowSourceSelector] = useState(false);
+<<<<<<< HEAD
   const [secondaryAlert, setSecondaryAlert] = useState<SecondaryAlert | null>(null);
   const [secondaryAlertDismissed, setSecondaryAlertDismissed] = useState(false);
+=======
+  const [currentWebsite, setCurrentWebsite] = useState<string>("");
+  const [videoWebsiteName, setVideoWebsiteName] = useState<string>("");
+>>>>>>> edcea22 (frontend display changes)
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -92,7 +120,7 @@ export function DetectorOverlay() {
   const monitoringStartTimeRef = useRef<number | null>(null);
   const sessionIdRef = useRef<string | null>(null);
 
-  const BACKEND_URL = "http://localhost:8000";
+  const BACKEND_URL = "https://detectible-judy-overderisive.ngrok-free.dev";
 
   const updateAudioLevels = useCallback(() => {
     if (analyserRef.current && isActive) {
@@ -164,7 +192,8 @@ export function DetectorOverlay() {
       // Normalize backend labels (likely_real/likely_fake) to frontend verdicts (real/fake)
       if (data.overall?.verdict) {
         const v = data.overall.verdict;
-        data.overall.verdict = v === "likely_real" ? "real" : v === "likely_fake" ? "fake" : v;
+        data.overall.verdict =
+          v === "likely_real" ? "real" : v === "likely_fake" ? "fake" : v;
       }
       // Handle secondary analysis alert
       if (data.secondary_result) {
@@ -320,37 +349,6 @@ export function DetectorOverlay() {
     }
   };
 
-  const simulateAnalysisUpdate = (snippetCount: number) => {
-    // Simulate backend returning analysis results
-    // Replace this with actual API response handling
-
-    // Calculate time elapsed since monitoring started
-    const timeElapsed = monitoringStartTimeRef.current
-      ? (Date.now() - monitoringStartTimeRef.current) / 1000
-      : 0;
-
-    // Only show processing state during first 6 seconds
-    const processingDelay = timeElapsed < 6 ? 6000 - timeElapsed * 1000 : 0;
-
-    if (processingDelay > 0) {
-      setIsProcessing(true);
-    }
-
-    processingTimeoutRef.current = setTimeout(() => {
-      const verdicts: Verdict[] = ["real", "fake", "uncertain"];
-      const randomVerdict = verdicts[Math.floor(Math.random() * 3)];
-
-      setAnalysisData({
-        verdict: randomVerdict,
-        confidence: 60 + Math.random() * 35,
-        snippetsAnalyzed: snippetCount,
-        duration: snippetCount * 2,
-        pointers: generatePointers(randomVerdict),
-      });
-      setState("result");
-      setIsProcessing(false);
-    }, processingDelay);
-  };
 
   const generatePointers = (verdict: Verdict): AnalysisPointer[] => {
     if (verdict === "fake") {
@@ -409,7 +407,10 @@ export function DetectorOverlay() {
   const stopMonitoring = () => {
     setIsActive(false);
 
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state === "recording"
+    ) {
       mediaRecorderRef.current.stop();
     }
     if (streamRef.current) {
@@ -437,14 +438,21 @@ export function DetectorOverlay() {
 
     // Save to call history when stopping with analysis results
     if (analysisData && snippetsCount > 0) {
+      const callerInfo =
+        sourceType === "video" && currentWebsite
+          ? currentWebsite
+          : sourceType === "video"
+            ? "Video Stream"
+            : "+1 (555) " +
+              Math.floor(100 + Math.random() * 900) +
+              "-" +
+              Math.floor(1000 + Math.random() * 9000);
+
       const newHistoryItem: CallHistoryItem = {
         id: Date.now().toString(),
         analysis: analysisData,
-        callerInfo:
-          "+1 (555) " +
-          Math.floor(100 + Math.random() * 900) +
-          "-" +
-          Math.floor(1000 + Math.random() * 9000), // Simulated caller ID
+        callerInfo,
+        sourceType: sourceType || "call",
         timestamp: new Date(),
         isBlocked: false,
         isReported: false,
@@ -459,11 +467,11 @@ export function DetectorOverlay() {
   };
 
   const cancelSourceSelector = () => {
-    // Don't allow canceling - require source selection
-    // User must select a source type to proceed
+    setShowSourceSelector(false);
+    setSourceType(null);
   };
 
-  const handleSourceTypeChange = (type: "call" | "video" | "file") => {
+  const handleSourceTypeChange = (type: "call" | "video") => {
     setSourceType(type);
   };
 
@@ -530,7 +538,14 @@ export function DetectorOverlay() {
     return date.toLocaleDateString([], { month: "short", day: "numeric" });
   };
 
-  const getLastCall = () => callHistory[0] || null;
+  const getLastCall = () =>
+    callHistory.find((item) => item.sourceType === "call") || null;
+  const getLastVideo = () =>
+    callHistory.find((item) => item.sourceType === "video") || null;
+
+  useEffect(() => {
+    setCurrentWebsite(getCurrentWebsite());
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -614,11 +629,22 @@ export function DetectorOverlay() {
           </motion.button>
         ) : (
           <motion.div
+            onClick={() => setIsExpanded(false)}
+            className="fixed inset-0 z-40"
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Expanded Panel */}
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
             key="panel"
             initial={{ scale: 0.8, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.8, opacity: 0, y: 20 }}
-            className="flex max-h-[calc(100vh-3rem)] w-80 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+            className="fixed bottom-6 right-6 z-50 flex max-h-[calc(100vh-3rem)] w-80 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
           >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-border bg-secondary/30 px-4 py-3">
@@ -693,7 +719,7 @@ export function DetectorOverlay() {
                     </div>
 
                     <h4 className="font-medium text-foreground">
-                      Call History
+                      Recent History
                     </h4>
 
                     {selectedHistoryItem ? (
@@ -717,18 +743,33 @@ export function DetectorOverlay() {
                                     : "bg-warning/20",
                               )}
                             >
-                              <Phone
-                                className={cn(
-                                  "h-5 w-5",
-                                  selectedHistoryItem.analysis.verdict ===
-                                    "fake"
-                                    ? "text-danger"
-                                    : selectedHistoryItem.analysis.verdict ===
-                                        "real"
-                                      ? "text-success"
-                                      : "text-warning",
-                                )}
-                              />
+                              {selectedHistoryItem.sourceType === "video" ? (
+                                <Camera
+                                  className={cn(
+                                    "h-5 w-5",
+                                    selectedHistoryItem.analysis.verdict ===
+                                      "fake"
+                                      ? "text-danger"
+                                      : selectedHistoryItem.analysis.verdict ===
+                                          "real"
+                                        ? "text-success"
+                                        : "text-warning",
+                                  )}
+                                />
+                              ) : (
+                                <Phone
+                                  className={cn(
+                                    "h-5 w-5",
+                                    selectedHistoryItem.analysis.verdict ===
+                                      "fake"
+                                      ? "text-danger"
+                                      : selectedHistoryItem.analysis.verdict ===
+                                          "real"
+                                        ? "text-success"
+                                        : "text-warning",
+                                  )}
+                                />
+                              )}
                             </div>
                             <div className="flex-1">
                               <p className="font-medium text-foreground">
@@ -775,7 +816,7 @@ export function DetectorOverlay() {
                     ) : callHistory.length > 0 ? (
                       /* History List */
                       <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                        {callHistory.map((item) => (
+                        {callHistory.slice(0, 5).map((item) => (
                           <button
                             key={item.id}
                             onClick={() => setSelectedHistoryItem(item)}
@@ -842,10 +883,10 @@ export function DetectorOverlay() {
                       <div className="py-8 text-center">
                         <History className="mx-auto h-10 w-10 text-muted-foreground/40 mb-3" />
                         <p className="text-sm text-muted-foreground">
-                          No call history yet
+                          No analysis history yet
                         </p>
                         <p className="text-xs text-muted-foreground/70 mt-1">
-                          Analyzed calls will appear here
+                          Analyzed audio will appear here
                         </p>
                       </div>
                     )}
@@ -858,7 +899,7 @@ export function DetectorOverlay() {
                     exit={{ opacity: 0, x: 20 }}
                   >
                     {/* Active/Inactive Toggle */}
-                    <div className="mb-2">
+                    <div className="mb-6">
                       <button
                         onClick={toggleMonitoring}
                         className={cn(
@@ -929,7 +970,7 @@ export function DetectorOverlay() {
                               {formatTime(monitoringTime)}
                             </span>
                           </div>
-                            <AudioWaveform isPlaying={isActive} />
+                          <AudioWaveform isPlaying={isActive} />
                         </div>
                         <span className="text-xs text-muted-foreground">
                           Audio Input
@@ -1052,88 +1093,183 @@ export function DetectorOverlay() {
                         )}
                     </AnimatePresence>
 
-                    {/* Last Call Summary */}
-                    {!isActive && getLastCall() && (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                            <Clock className="h-4 w-4" />
-                            Last Call Summary
+                    {/* Last Call & Last Video Summary Section */}
+                    <div className="space-y-4">
+                      {/* Last Call Summary */}
+                      {!isActive && getLastCall() && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                              <Clock className="h-4 w-4" />
+                              Last Call Summary
+                            </div>
                           </div>
-                        </div>
 
-                        <button
-                          onClick={() => {
-                            setShowHistory(true);
-                            setSelectedHistoryItem(getLastCall()!);
-                          }}
-                          className="w-full rounded-lg border border-border bg-secondary/20 p-3 space-y-2 hover:bg-secondary/40 transition-colors cursor-pointer text-left"
-                        >
-                          {/* Phone Number & Time */}
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <div
-                                className={cn(
-                                  "flex h-8 w-8 items-center justify-center rounded-full",
-                                  getLastCall()!.analysis.verdict === "fake"
-                                    ? "bg-destructive/20"
-                                    : "bg-green-500/20",
-                                )}
-                              >
-                                <Phone
+                          <button
+                            onClick={() => {
+                              setShowHistory(true);
+                              setSelectedHistoryItem(getLastCall()!);
+                            }}
+                            className="w-full rounded-lg border border-border bg-secondary/20 p-3 space-y-2 hover:bg-secondary/40 transition-colors cursor-pointer text-left"
+                          >
+                            {/* Phone Number & Time */}
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <div
                                   className={cn(
-                                    "h-4 w-4",
+                                    "flex h-8 w-8 items-center justify-center rounded-full",
+                                    getLastCall()!.analysis.verdict === "fake"
+                                      ? "bg-destructive/20"
+                                      : "bg-green-500/20",
+                                  )}
+                                >
+                                  <Phone
+                                    className={cn(
+                                      "h-4 w-4",
+                                      getLastCall()!.analysis.verdict === "fake"
+                                        ? "text-destructive"
+                                        : "text-green-500",
+                                    )}
+                                  />
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-sm">
+                                    {getLastCall()!.callerInfo}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {formatDate(getLastCall()!.timestamp)}
+                                  </p>
+                                </div>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {formatTime(getLastCall()!.analysis.duration)}
+                              </p>
+                            </div>
+
+                            {/* Verdict & Confidence */}
+                            <div className="space-y-1 pt-2 border-t border-border">
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs text-muted-foreground">
+                                  Verdict
+                                </p>
+                                <p
+                                  className={cn(
+                                    "text-sm font-semibold capitalize",
                                     getLastCall()!.analysis.verdict === "fake"
                                       ? "text-destructive"
-                                      : "text-green-500",
+                                      : getLastCall()!.analysis.verdict ===
+                                          "real"
+                                        ? "text-green-500"
+                                        : "text-yellow-500",
                                   )}
-                                />
-                              </div>
-                              <div>
-                                <p className="font-semibold text-sm">
-                                  {getLastCall()!.callerInfo}
+                                >
+                                  {getLastCall()!.analysis.verdict}
                                 </p>
+                              </div>
+                              <div className="flex items-center justify-between">
                                 <p className="text-xs text-muted-foreground">
-                                  {formatDate(getLastCall()!.timestamp)}
+                                  Confidence
+                                </p>
+                                <p className="text-sm font-semibold">
+                                  {getLastCall()!.analysis.confidence.toFixed(
+                                    1,
+                                  )}
+                                  %
                                 </p>
                               </div>
                             </div>
-                            <p className="text-xs text-muted-foreground">
-                              {formatTime(getLastCall()!.analysis.duration)}
-                            </p>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Last Video Summary */}
+                      {!isActive && getLastVideo() && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                              <Clock className="h-4 w-4" />
+                              Last Video Summary
+                            </div>
                           </div>
 
-                          {/* Verdict & Confidence */}
-                          <div className="space-y-1 pt-2 border-t border-border">
-                            <div className="flex items-center justify-between">
+                          <button
+                            onClick={() => {
+                              setShowHistory(true);
+                              setSelectedHistoryItem(getLastVideo()!);
+                            }}
+                            className="w-full rounded-lg border border-border bg-secondary/20 p-3 space-y-2 hover:bg-secondary/40 transition-colors cursor-pointer text-left"
+                          >
+                            {/* Video Title & Time */}
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className={cn(
+                                    "flex h-8 w-8 items-center justify-center rounded-full",
+                                    getLastVideo()!.analysis.verdict === "fake"
+                                      ? "bg-destructive/20"
+                                      : "bg-green-500/20",
+                                  )}
+                                >
+                                  <Camera
+                                    className={cn(
+                                      "h-4 w-4",
+                                      getLastVideo()!.analysis.verdict ===
+                                        "fake"
+                                        ? "text-destructive"
+                                        : "text-green-500",
+                                    )}
+                                  />
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-sm">
+                                    {getLastVideo()!.callerInfo}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {formatDate(getLastVideo()!.timestamp)}
+                                  </p>
+                                </div>
+                              </div>
                               <p className="text-xs text-muted-foreground">
-                                Verdict
-                              </p>
-                              <p
-                                className={cn(
-                                  "text-sm font-semibold capitalize",
-                                  getLastCall()!.analysis.verdict === "fake"
-                                    ? "text-destructive"
-                                    : getLastCall()!.analysis.verdict === "real"
-                                      ? "text-green-500"
-                                      : "text-yellow-500",
-                                )}
-                              >
-                                {getLastCall()!.analysis.verdict}
+                                {formatTime(getLastVideo()!.analysis.duration)}
                               </p>
                             </div>
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs text-muted-foreground">
-                                Confidence
-                              </p>
-                              <p className="text-sm font-semibold">
-                                {getLastCall()!.analysis.confidence.toFixed(1)}%
-                              </p>
+
+                            {/* Verdict & Confidence */}
+                            <div className="space-y-1 pt-2 border-t border-border">
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs text-muted-foreground">
+                                  Verdict
+                                </p>
+                                <p
+                                  className={cn(
+                                    "text-sm font-semibold capitalize",
+                                    getLastVideo()!.analysis.verdict === "fake"
+                                      ? "text-destructive"
+                                      : getLastVideo()!.analysis.verdict ===
+                                          "real"
+                                        ? "text-green-500"
+                                        : "text-yellow-500",
+                                  )}
+                                >
+                                  {getLastVideo()!.analysis.verdict}
+                                </p>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs text-muted-foreground">
+                                  Confidence
+                                </p>
+                                <p className="text-sm font-semibold">
+                                  {getLastVideo()!.analysis.confidence.toFixed(
+                                    1,
+                                  )}
+                                  %
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                        </button>
-                      </div>
-                    )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
 
                     {/* Idle state message when no monitoring and no history */}
                     {!isActive &&
@@ -1182,15 +1318,25 @@ export function DetectorOverlay() {
               onClick={(e) => e.stopPropagation()}
               className="bg-card border border-border rounded-2xl shadow-2xl max-w-sm w-full p-6"
             >
-              <h2 className="text-lg font-semibold text-foreground mb-2">
-                Select Audio Source
-              </h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                This can be changed anytime later on.
-              </p>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">
+                    Select Audio Source
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    This can be changed anytime later on.
+                  </p>
+                </div>
+                <button
+                  onClick={cancelSourceSelector}
+                  className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors ml-4"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
 
-              <div className="space-y-2 mb-6">
-                {(["call", "video", "file"] as const).map((type) => (
+              <div className="space-y-2 mb-6 mt-4">
+                {(["call", "video"] as const).map((type) => (
                   <button
                     key={type}
                     onClick={() => handleSourceTypeChange(type)}
@@ -1218,16 +1364,12 @@ export function DetectorOverlay() {
                         <p className="font-medium text-foreground capitalize">
                           {type === "call"
                             ? "📞 Phone/Video Call"
-                            : type === "video"
-                              ? "🎬 Video Playing"
-                              : "📁 File Upload"}
+                            : "🎬 Video Playing"}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {type === "call"
                             ? "Call audio from other person (screenshare)"
-                            : type === "video"
-                              ? "Video, music, or media player content"
-                              : "Uploaded or local audio file"}
+                            : `Playing on ${currentWebsite || "unknown website"}`}
                         </p>
                       </div>
                     </div>
