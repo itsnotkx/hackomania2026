@@ -82,7 +82,7 @@ export function DetectorOverlay() {
   const monitoringStartTimeRef = useRef<number | null>(null);
   const sessionIdRef = useRef<string | null>(null);
 
-  const BACKEND_URL = "http://localhost:8000";
+  const BACKEND_URL = "https://detectible-judy-overderisive.ngrok-free.dev";
 
   const updateAudioLevels = useCallback(() => {
     if (analyserRef.current && isActive) {

@@ -1,4 +1,4 @@
-const BACKEND_URL = 'http://localhost:8000';
+const BACKEND_URL = 'https://detectible-judy-overderisive.ngrok-free.dev';
 const CHUNK_SAMPLES = 32000; // 2s at 16kHz
 const SAMPLE_RATE = 16000;
 const BUFFER_SIZE = 4096;
