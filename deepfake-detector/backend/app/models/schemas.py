@@ -105,9 +105,28 @@ class FileAnalysisOverall(BaseModel):
     fake_segment_ratio: float
 
 
+class SecondaryAnalysisData(BaseModel):
+    """Secondary analysis result embedded in REST responses."""
+    transcript: str
+    urgency_level: str       # low | medium | high | critical
+    confidence_score: float  # 0.0 – 1.0
+    reasoning: str
+    latency_ms: int
+
+
 class FileAnalysisResponse(BaseModel):
     session_id: str
     file_name: str
     duration_s: float
     segments: list[FileSegment]
     overall: FileAnalysisOverall
+    secondary_result: Optional[SecondaryAnalysisData] = None
+
+
+class SecondaryAnalysisResult(BaseModel):
+    type: Literal["secondary_result"] = "secondary_result"
+    transcript: str
+    urgency_level: str       # low | medium | high | critical
+    confidence_score: float  # 0.0 – 1.0
+    reasoning: str
+    latency_ms: int

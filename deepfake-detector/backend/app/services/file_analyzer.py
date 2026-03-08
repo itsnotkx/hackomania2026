@@ -77,6 +77,7 @@ async def analyze_file(file_bytes: bytes, content_type: str, file_name: str) -> 
 
     chunk_samples = settings.sample_rate * 2  # 2s chunks
     segments = []
+    all_pcm_bytes = b""
 
     for i in range(0, len(audio), chunk_samples):
         chunk = audio[i:i + chunk_samples]
@@ -86,6 +87,7 @@ async def analyze_file(file_bytes: bytes, content_type: str, file_name: str) -> 
         if len(chunk) < chunk_samples:
             chunk = np.pad(chunk, (0, chunk_samples - len(chunk)))
         chunk_bytes = (chunk * 32767).astype(np.int16).tobytes()
+        all_pcm_bytes += chunk_bytes
         result = await asyncio.to_thread(run_inference, chunk_bytes)
         start_s = round(i / settings.sample_rate, 2)
         end_s = round(min((i + chunk_samples) / settings.sample_rate, duration_s), 2)
@@ -114,4 +116,5 @@ async def analyze_file(file_bytes: bytes, content_type: str, file_name: str) -> 
             "verdict": verdict,
             "fake_segment_ratio": fake_ratio,
         },
+        "pcm_bytes": all_pcm_bytes,  # raw int16 PCM for secondary buffer; stripped before response
     }

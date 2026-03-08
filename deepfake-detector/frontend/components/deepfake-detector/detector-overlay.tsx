@@ -18,6 +18,7 @@ import {
   Clock,
   ChevronLeft,
   Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -51,6 +52,13 @@ interface CallHistoryItem {
   isReported: boolean;
 }
 
+interface SecondaryAlert {
+  urgency_level: "low" | "medium" | "high" | "critical";
+  transcript: string;
+  reasoning: string;
+  confidence_score: number;
+}
+
 export function DetectorOverlay() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [state, setState] = useState<DetectorState>("idle");
@@ -70,6 +78,8 @@ export function DetectorOverlay() {
     "call" | "video" | "file" | null
   >(null);
   const [showSourceSelector, setShowSourceSelector] = useState(false);
+  const [secondaryAlert, setSecondaryAlert] = useState<SecondaryAlert | null>(null);
+  const [secondaryAlertDismissed, setSecondaryAlertDismissed] = useState(false);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -155,6 +165,20 @@ export function DetectorOverlay() {
       if (data.overall?.verdict) {
         const v = data.overall.verdict;
         data.overall.verdict = v === "likely_real" ? "real" : v === "likely_fake" ? "fake" : v;
+      }
+      // Handle secondary analysis alert
+      if (data.secondary_result) {
+        const sr = data.secondary_result;
+        const level = sr.urgency_level as SecondaryAlert["urgency_level"];
+        if (level === "high" || level === "critical") {
+          setSecondaryAlert({
+            urgency_level: level,
+            transcript: sr.transcript,
+            reasoning: sr.reasoning,
+            confidence_score: sr.confidence_score,
+          });
+          setSecondaryAlertDismissed(false);
+        }
       }
       return data;
     } catch (error) {
@@ -430,6 +454,8 @@ export function DetectorOverlay() {
 
     setState("idle");
     setAnalysisData(null);
+    setSecondaryAlert(null);
+    setSecondaryAlertDismissed(false);
   };
 
   const cancelSourceSelector = () => {
@@ -910,6 +936,68 @@ export function DetectorOverlay() {
                         </span>
                       </div>
                     )}
+
+                    {/* Secondary Analysis — Scam/Intent Warning */}
+                    <AnimatePresence>
+                      {secondaryAlert && !secondaryAlertDismissed && (
+                        <motion.div
+                          key="secondary-alert"
+                          initial={{ opacity: 0, y: -8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -8 }}
+                          className={cn(
+                            "mb-3 rounded-xl border p-3",
+                            secondaryAlert.urgency_level === "critical"
+                              ? "bg-danger/10 border-danger/40"
+                              : "bg-warning/10 border-warning/40",
+                          )}
+                        >
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle
+                              className={cn(
+                                "mt-0.5 h-4 w-4 flex-shrink-0",
+                                secondaryAlert.urgency_level === "critical"
+                                  ? "text-danger"
+                                  : "text-warning",
+                              )}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p
+                                className={cn(
+                                  "text-sm font-semibold",
+                                  secondaryAlert.urgency_level === "critical"
+                                    ? "text-danger"
+                                    : "text-warning",
+                                )}
+                              >
+                                {secondaryAlert.urgency_level === "critical"
+                                  ? "Scam Alert — High Risk"
+                                  : "Suspicious Content Detected"}
+                              </p>
+                              <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
+                                {secondaryAlert.reasoning}
+                              </p>
+                              {secondaryAlert.transcript && (
+                                <details className="mt-1.5">
+                                  <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                                    View transcript
+                                  </summary>
+                                  <p className="mt-1 rounded bg-secondary/60 p-2 text-xs leading-relaxed text-foreground">
+                                    {secondaryAlert.transcript}
+                                  </p>
+                                </details>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => setSecondaryAlertDismissed(true)}
+                              className="text-muted-foreground hover:text-foreground flex-shrink-0"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     {/* Live Analysis Result - only show during active monitoring */}
                     <AnimatePresence mode="wait">
