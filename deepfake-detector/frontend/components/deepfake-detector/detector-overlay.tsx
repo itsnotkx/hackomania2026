@@ -117,7 +117,7 @@ export function DetectorOverlay() {
   const monitoringStartTimeRef = useRef<number | null>(null);
   const sessionIdRef = useRef<string | null>(null);
 
-  const BACKEND_URL ="https://nonperceivably-unblinding-orville.ngrok-free.dev"
+  const BACKEND_URL = ""
 
   const updateAudioLevels = useCallback(() => {
     if (analyserRef.current && isActive) {
@@ -651,7 +651,7 @@ export function DetectorOverlay() {
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">
-                    DeepGuard
+                    NoScam
                   </h3>
                   <p className="text-xs text-muted-foreground">
                     {getStatusText()}
