@@ -107,7 +107,7 @@ export function HeroSection() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
               <span className="relative inline-flex h-3 w-3 rounded-full bg-primary" />
             </span>
-            <span className="text-sm text-primary">DeepGuard is ready</span>
+            <span className="text-sm text-primary">NoScam is ready</span>
           </div>
         </motion.div>
       </div>

@@ -224,7 +224,7 @@ export function useDeepfakeDetection(): UseDeepfakeDetectionResult {
           source_type: "call",
           client_platform: "web",
           metadata: {
-            app_name: "DeepGuard Web",
+            app_name: "NoScam Web",
             sample_rate: SAMPLE_RATE,
             chunk_duration_ms: CHUNK_DURATION_MS,
           },

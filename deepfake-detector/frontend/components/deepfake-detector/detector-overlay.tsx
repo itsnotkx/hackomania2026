@@ -651,7 +651,7 @@ export function DetectorOverlay() {
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">
-                    DeepGuard
+                    NoScam
                   </h3>
                   <p className="text-xs text-muted-foreground">
                     {getStatusText()}

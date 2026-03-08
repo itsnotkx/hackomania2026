@@ -34,7 +34,7 @@
     "storage"
   ],
   "host_permissions": [
-    "https://detectible-judy-overderisive.ngrok-free.dev/*"
+    "https://nonperceivably-unblinding-orville.ngrok-free.dev/*"
   ],
   "background": {
     "service_worker": "service-worker.js"
@@ -391,7 +391,7 @@ Key facts about audio processing:
 - Send as binary ArrayBuffer via WebSocket
 
 ```javascript
-const BACKEND_URL = 'https://detectible-judy-overderisive.ngrok-free.dev';
+const BACKEND_URL = 'https://nonperceivably-unblinding-orville.ngrok-free.dev';
 const CHUNK_SAMPLES = 32000; // 2s at 16kHz
 const SAMPLE_RATE = 16000;
 const BUFFER_SIZE = 4096;
@@ -531,7 +531,7 @@ git commit -m "feat: add offscreen document for audio capture and WebSocket stre
 **Step 1: Write service-worker.js**
 
 ```javascript
-const BACKEND_URL = 'https://detectible-judy-overderisive.ngrok-free.dev';
+const BACKEND_URL = 'https://nonperceivably-unblinding-orville.ngrok-free.dev';
 const OFFSCREEN_URL = chrome.runtime.getURL('offscreen.html');
 
 let state = 'idle'; // 'idle' | 'connecting' | 'live' | 'error'
@@ -717,7 +717,7 @@ Check backend logs to confirm:
 ngrok free tier injects a warning page on first browser visit. The `ngrok-skip-browser-warning: 1` header in fetch requests bypasses it for API calls. WebSocket connections are unaffected.
 
 If the backend is unreachable, check:
-- ngrok tunnel is still running (`https://detectible-judy-overderisive.ngrok-free.dev` is active)
+- ngrok tunnel is still running (`https://nonperceivably-unblinding-orville.ngrok-free.dev` is active)
 - Backend process is running behind ngrok
 
 **Step 3: Final commit**

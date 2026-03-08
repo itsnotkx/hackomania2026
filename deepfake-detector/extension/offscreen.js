@@ -1,4 +1,4 @@
-const BACKEND_URL = 'https://detectible-judy-overderisive.ngrok-free.dev';
+const BACKEND_URL = 'https://nonperceivably-unblinding-orville.ngrok-free.dev';
 const CHUNK_SAMPLES = 32000; // 2s at 16kHz
 const SAMPLE_RATE = 16000;
 

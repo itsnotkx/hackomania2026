@@ -7,7 +7,7 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'DeepGuard - AI Audio Deepfake Detection',
+  title: 'NoScam - AI Audio Deepfake Detection',
   description: 'Detect AI-generated deepfake audio in real-time calls and recordings. Protect yourself from voice scams with advanced audio analysis.',
   generator: 'v0.app',
   icons: {
