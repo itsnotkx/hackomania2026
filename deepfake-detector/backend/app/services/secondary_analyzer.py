@@ -6,6 +6,7 @@ Uses a service account JSON key file for GCP auth — no gcloud CLI or ADC neede
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 
@@ -107,7 +108,8 @@ async def analyze_urgency(transcript: str) -> dict:
 
     t0 = time.perf_counter()
 
-    completion = client.chat.completions.create(
+    completion = await asyncio.to_thread(
+        client.chat.completions.create,
         model=settings.sealion_model,
         messages=[
             {"role": "system", "content": URGENCY_SYSTEM_PROMPT},

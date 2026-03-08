@@ -133,6 +133,8 @@ function setState(newState, error) {
   state = newState;
   // Broadcast to popup (if open) — ignore errors if popup is closed
   chrome.runtime.sendMessage({ action: 'stateChanged', state, error }).catch(() => {});
+  // Broadcast to content scripts so the badge reflects recording state
+  broadcastToContent({ action: 'recordingStateChanged', state, error });
 }
 
 async function broadcastToContent(payload) {

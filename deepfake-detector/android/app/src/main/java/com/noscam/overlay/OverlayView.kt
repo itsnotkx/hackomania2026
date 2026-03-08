@@ -7,10 +7,12 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.LinearLayout
 import android.widget.TextView
 import com.noscam.R
 import com.noscam.model.DetectionResult
 import com.noscam.model.OverlayState
+import com.noscam.model.SecondaryResult
 
 class OverlayView(
     private val context: Context,
@@ -23,6 +25,9 @@ class OverlayView(
     private val statusLabel = root.findViewById<TextView>(R.id.statusLabel)
     private val scoreLabel = root.findViewById<TextView>(R.id.scoreLabel)
     private val toggleBtn = root.findViewById<TextView>(R.id.toggleBtn)
+    private val scamWarningRow = root.findViewById<LinearLayout>(R.id.scamWarningRow)
+    private val scamWarningLabel = root.findViewById<TextView>(R.id.scamWarningLabel)
+    private val scamDismissBtn = root.findViewById<TextView>(R.id.scamDismissBtn)
 
     private val params = WindowManager.LayoutParams(
         WindowManager.LayoutParams.WRAP_CONTENT,
@@ -68,6 +73,10 @@ class OverlayView(
                     statusDot.setBackgroundResource(R.drawable.dot_red)
                     statusLabel.text = "FAKE"
                 }
+                OverlayState.SCAM_ALERT -> {
+                    statusDot.setBackgroundResource(R.drawable.dot_red)
+                    statusLabel.text = "SCAM ALERT"
+                }
                 OverlayState.PAUSED -> {
                     statusDot.setBackgroundResource(R.drawable.dot_grey)
                     statusLabel.text = "PAUSED"
@@ -78,6 +87,17 @@ class OverlayView(
             if (expanded && result != null) {
                 scoreLabel.text = "Score: ${"%.2f".format(result.score)} · Avg: ${"%.2f".format(result.rollingAvg)}"
             }
+        }
+    }
+
+    fun showScamAlert(result: SecondaryResult) {
+        root.post {
+            val prefix = if (result.urgencyLevel == "critical") "SCAM DETECTED" else "Suspicious"
+            val detail = result.reasoning.take(70)
+            scamWarningLabel.text = "$prefix — $detail"
+            scamWarningRow.visibility = View.VISIBLE
+            statusDot.setBackgroundResource(R.drawable.dot_red)
+            statusLabel.text = "SCAM ALERT"
         }
     }
 
@@ -96,6 +116,10 @@ class OverlayView(
             toggleBtn.text = if (paused) ">" else "II"
             onToggle(paused)
             if (paused) updateState(OverlayState.PAUSED)
+        }
+
+        scamDismissBtn.setOnClickListener {
+            scamWarningRow.visibility = View.GONE
         }
     }
 

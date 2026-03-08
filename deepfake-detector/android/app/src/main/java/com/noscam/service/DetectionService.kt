@@ -9,6 +9,7 @@ import android.os.IBinder
 import com.noscam.audio.AudioCapture
 import com.noscam.model.DetectionResult
 import com.noscam.model.OverlayState
+import com.noscam.model.SecondaryResult
 import com.noscam.network.ApiClient
 import com.noscam.network.WebSocketClient
 import com.noscam.overlay.OverlayView
@@ -65,6 +66,7 @@ class DetectionService : Service() {
                     baseUrl = baseUrl,
                     sessionId = session.sessionId,
                     onResult = { result -> onDetectionResult(result) },
+                    onSecondaryResult = { result -> onSecondaryResult(result) },
                     onError = { _ -> overlay?.updateState(OverlayState.DETECTING) }
                 )
                 wsClient?.connect()
@@ -84,6 +86,12 @@ class DetectionService : Service() {
     private fun onDetectionResult(result: DetectionResult) {
         val state = DetectionResult.labelToState(result.label)
         overlay?.updateState(state, result)
+    }
+
+    private fun onSecondaryResult(result: SecondaryResult) {
+        if (result.isSuspicious) {
+            overlay?.showScamAlert(result)
+        }
     }
 
     override fun onDestroy() {

@@ -1,7 +1,9 @@
 package com.noscam.network
 
 import com.google.gson.Gson
+import com.google.gson.JsonObject
 import com.noscam.model.DetectionResult
+import com.noscam.model.SecondaryResult
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -14,6 +16,7 @@ class WebSocketClient(
     baseUrl: String,
     sessionId: String,
     private val onResult: (DetectionResult) -> Unit,
+    private val onSecondaryResult: (SecondaryResult) -> Unit,
     private val onError: (String) -> Unit
 ) {
     private val wsUrl = baseUrl
@@ -36,8 +39,17 @@ class WebSocketClient(
         ws = client.newWebSocket(request, object : WebSocketListener() {
             override fun onMessage(webSocket: WebSocket, text: String) {
                 runCatching {
-                    val result = gson.fromJson(text, DetectionResult::class.java)
-                    if (result.type == "result") onResult(result)
+                    val json = gson.fromJson(text, JsonObject::class.java)
+                    when (json.get("type")?.asString) {
+                        "result" -> {
+                            val result = gson.fromJson(text, DetectionResult::class.java)
+                            onResult(result)
+                        }
+                        "secondary_result" -> {
+                            val result = gson.fromJson(text, SecondaryResult::class.java)
+                            onSecondaryResult(result)
+                        }
+                    }
                 }
             }
 

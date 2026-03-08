@@ -2,7 +2,7 @@ package com.noscam.model
 
 import com.google.gson.annotations.SerializedName
 
-enum class OverlayState { DETECTING, REAL, UNCERTAIN, FAKE, PAUSED }
+enum class OverlayState { DETECTING, REAL, UNCERTAIN, FAKE, SCAM_ALERT, PAUSED }
 
 data class DetectionResult(
     val type: String,
@@ -21,4 +21,15 @@ data class DetectionResult(
             else          -> OverlayState.DETECTING
         }
     }
+}
+
+data class SecondaryResult(
+    val type: String,
+    val transcript: String,
+    @SerializedName("urgency_level") val urgencyLevel: String,
+    @SerializedName("confidence_score") val confidenceScore: Float,
+    val reasoning: String,
+    @SerializedName("latency_ms") val latencyMs: Int
+) {
+    val isSuspicious: Boolean get() = urgencyLevel == "high" || urgencyLevel == "critical"
 }
