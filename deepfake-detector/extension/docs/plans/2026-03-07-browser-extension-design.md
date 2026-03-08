@@ -64,7 +64,7 @@ frontend/
 ### Popup (popup.html)
 - "Start Detection" / "Stop Detection" toggle button
 - Status line: Connecting / Live / Stopped / Error
-- Backend URL hardcoded: `https://detectible-judy-overderisive.ngrok-free.dev`
+- Backend URL hardcoded: `https://nonperceivably-unblinding-orville.ngrok-free.dev`
 
 ## Backend API Reference
 
