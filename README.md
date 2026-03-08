@@ -43,6 +43,10 @@ This dual-layer approach means that even if the audio synthesis fools the acoust
 
 This system is designed to complement **[Ahref's](https://ahrefs.com/) AI-generated text detection** capability. Where Ahref identifies AI-written articles and content, NoScam adds an orthogonal **audio detection layer** — together forming a more complete defence against AI-generated disinformation across both written and spoken media.
 
+
+### Security & Privacy
+NoScam **DOES NOT** store your audio. It collects them in 2s batches, processes them, and promptly deletes them after the result has been returned.
+
 ---
 
 ## Architecture
@@ -93,6 +97,7 @@ A Chrome extension that runs passively in the background during browser-based ca
 The Android application is the most critical frontend, because **phone calls are the primary vector for scams targeting seniors**. The app integrates with the device's microphone to monitor calls and surface a real-time warning when AI-generated audio is detected — before the victim acts on it.
 
 ---
+
 
 ## Tech Stack
 
